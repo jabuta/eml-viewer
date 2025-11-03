@@ -1,0 +1,1875 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>config: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/felo/eml-viewer/internal/config/config.go (0.0%)</option>
+				
+				<option value="file1">github.com/felo/eml-viewer/internal/db/db.go (75.9%)</option>
+				
+				<option value="file2">github.com/felo/eml-viewer/internal/db/emails.go (77.8%)</option>
+				
+				<option value="file3">github.com/felo/eml-viewer/internal/db/search.go (86.9%)</option>
+				
+				<option value="file4">github.com/felo/eml-viewer/internal/db/test_helpers.go (87.0%)</option>
+				
+				<option value="file5">github.com/felo/eml-viewer/internal/handlers/attachments.go (0.0%)</option>
+				
+				<option value="file6">github.com/felo/eml-viewer/internal/handlers/email.go (0.0%)</option>
+				
+				<option value="file7">github.com/felo/eml-viewer/internal/handlers/handlers.go (0.0%)</option>
+				
+				<option value="file8">github.com/felo/eml-viewer/internal/handlers/index.go (0.0%)</option>
+				
+				<option value="file9">github.com/felo/eml-viewer/internal/handlers/scan.go (0.0%)</option>
+				
+				<option value="file10">github.com/felo/eml-viewer/internal/handlers/search.go (0.0%)</option>
+				
+				<option value="file11">github.com/felo/eml-viewer/internal/indexer/indexer.go (0.0%)</option>
+				
+				<option value="file12">github.com/felo/eml-viewer/internal/parser/eml.go (88.2%)</option>
+				
+				<option value="file13">github.com/felo/eml-viewer/internal/scanner/scanner.go (0.0%)</option>
+				
+				<option value="file14">github.com/felo/eml-viewer/main.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package config
+
+import (
+        "os"
+        "path/filepath"
+)
+
+// Config holds application configuration
+type Config struct {
+        // Server settings
+        Host string
+        Port string
+
+        // Database settings
+        DBPath string
+
+        // Email folder settings
+        EmailsPath string
+}
+
+// Default returns default configuration
+func Default() *Config <span class="cov0" title="0">{
+        // Get user's home directory
+        homeDir, err := os.UserHomeDir()
+        if err != nil </span><span class="cov0" title="0">{
+                homeDir = "."
+        }</span>
+
+        // Use ~/.eml-viewer for data directory
+        <span class="cov0" title="0">dataDir := filepath.Join(homeDir, ".eml-viewer")
+
+        return &amp;Config{
+                Host:       "localhost",
+                Port:       "8080",
+                DBPath:     filepath.Join(dataDir, "emails.db"),
+                EmailsPath: "./emails", // Default to ./emails directory
+        }</span>
+}
+
+// Address returns the full server address
+func (c *Config) Address() string <span class="cov0" title="0">{
+        return c.Host + ":" + c.Port
+}</span>
+
+// URL returns the full server URL
+func (c *Config) URL() string <span class="cov0" title="0">{
+        return "http://" + c.Address()
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package db
+
+import (
+        "database/sql"
+        "fmt"
+        "os"
+        "path/filepath"
+
+        _ "modernc.org/sqlite"
+)
+
+type DB struct {
+        *sql.DB
+}
+
+// Open opens a connection to the SQLite database and initializes the schema
+func Open(dbPath string) (*DB, error) <span class="cov8" title="1">{
+        // Ensure the directory exists
+        dir := filepath.Dir(dbPath)
+        if err := os.MkdirAll(dir, 0755); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create database directory: %w", err)
+        }</span>
+
+        // Open SQLite database
+        <span class="cov8" title="1">sqlDB, err := sql.Open("sqlite", dbPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to open database: %w", err)
+        }</span>
+
+        // Set connection pool settings
+        <span class="cov8" title="1">sqlDB.SetMaxOpenConns(1) // SQLite works best with single connection
+        sqlDB.SetMaxIdleConns(1)
+
+        db := &amp;DB{sqlDB}
+
+        // Initialize schema
+        if err := db.initSchema(); err != nil </span><span class="cov0" title="0">{
+                sqlDB.Close()
+                return nil, fmt.Errorf("failed to initialize schema: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return db, nil</span>
+}
+
+// initSchema creates all tables, indexes, and triggers
+func (db *DB) initSchema() error <span class="cov8" title="1">{
+        _, err := db.Exec(schema)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to execute schema: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Close closes the database connection
+func (db *DB) Close() error <span class="cov8" title="1">{
+        return db.DB.Close()
+}</span>
+
+// GetSetting retrieves a setting value by key
+func (db *DB) GetSetting(key string) (string, error) <span class="cov8" title="1">{
+        var value string
+        err := db.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&amp;value)
+        if err == sql.ErrNoRows </span><span class="cov8" title="1">{
+                return "", nil
+        }</span>
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to get setting: %w", err)
+        }</span>
+        <span class="cov8" title="1">return value, nil</span>
+}
+
+// SetSetting sets or updates a setting
+func (db *DB) SetSetting(key, value string) error <span class="cov8" title="1">{
+        _, err := db.Exec(`
+                INSERT INTO settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP
+        `, key, value, value)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to set setting: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package db
+
+import (
+        "database/sql"
+        "fmt"
+        "time"
+)
+
+// Email represents an email record in the database
+type Email struct {
+        ID              int64
+        FilePath        string
+        MessageID       string
+        Subject         string
+        Sender          string
+        SenderName      string
+        Recipients      string
+        CC              string
+        BCC             string
+        Date            sql.NullTime
+        BodyText        string
+        BodyHTML        string
+        HasAttachments  bool
+        AttachmentCount int
+        RawHeaders      string
+        FileSize        int64
+        IndexedAt       sql.NullTime
+        UpdatedAt       sql.NullTime
+}
+
+// GetDate returns the date as time.Time, or zero time if NULL
+func (e *Email) GetDate() time.Time <span class="cov8" title="1">{
+        if e.Date.Valid </span><span class="cov0" title="0">{
+                return e.Date.Time
+        }</span>
+        <span class="cov8" title="1">return time.Time{}</span>
+}
+
+// Attachment represents an email attachment
+type Attachment struct {
+        ID          int64
+        EmailID     int64
+        Filename    string
+        ContentType string
+        Size        int64
+        Data        []byte
+}
+
+// InsertEmail inserts a new email into the database
+func (db *DB) InsertEmail(email *Email) (int64, error) <span class="cov8" title="1">{
+        result, err := db.Exec(`
+                INSERT INTO emails (
+                        file_path, message_id, subject, sender, sender_name,
+                        recipients, cc, bcc, date, body_text, body_html,
+                        has_attachments, attachment_count, raw_headers, file_size
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+                email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
+                email.Recipients, email.CC, email.BCC, email.Date, email.BodyText, email.BodyHTML,
+                email.HasAttachments, email.AttachmentCount, email.RawHeaders, email.FileSize,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to insert email: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return result.LastInsertId()</span>
+}
+
+// EmailExists checks if an email with the given file path already exists
+func (db *DB) EmailExists(filePath string) (bool, error) <span class="cov8" title="1">{
+        var exists bool
+        err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM emails WHERE file_path = ?)", filePath).Scan(&amp;exists)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, fmt.Errorf("failed to check email existence: %w", err)
+        }</span>
+        <span class="cov8" title="1">return exists, nil</span>
+}
+
+// GetEmailByID retrieves an email by its ID
+func (db *DB) GetEmailByID(id int64) (*Email, error) <span class="cov8" title="1">{
+        email := &amp;Email{}
+        err := db.QueryRow(`
+                SELECT id, file_path, message_id, subject, sender, sender_name,
+                       recipients, cc, bcc, date, body_text, body_html,
+                       has_attachments, attachment_count, raw_headers, file_size,
+                       indexed_at, updated_at
+                FROM emails WHERE id = ?
+        `, id).Scan(
+                &amp;email.ID, &amp;email.FilePath, &amp;email.MessageID, &amp;email.Subject, &amp;email.Sender, &amp;email.SenderName,
+                &amp;email.Recipients, &amp;email.CC, &amp;email.BCC, &amp;email.Date, &amp;email.BodyText, &amp;email.BodyHTML,
+                &amp;email.HasAttachments, &amp;email.AttachmentCount, &amp;email.RawHeaders, &amp;email.FileSize,
+                &amp;email.IndexedAt, &amp;email.UpdatedAt,
+        )
+        if err == sql.ErrNoRows </span><span class="cov8" title="1">{
+                return nil, nil
+        }</span>
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get email: %w", err)
+        }</span>
+        <span class="cov8" title="1">return email, nil</span>
+}
+
+// ListEmails retrieves the most recent emails with pagination
+func (db *DB) ListEmails(limit, offset int) ([]*Email, error) <span class="cov8" title="1">{
+        rows, err := db.Query(`
+                SELECT id, file_path, message_id, subject, sender, sender_name,
+                       recipients, cc, bcc, date, body_text, body_html,
+                       has_attachments, attachment_count, raw_headers, file_size,
+                       indexed_at, updated_at
+                FROM emails
+                ORDER BY date DESC
+                LIMIT ? OFFSET ?
+        `, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list emails: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var emails []*Email
+        for rows.Next() </span><span class="cov8" title="1">{
+                email := &amp;Email{}
+                err := rows.Scan(
+                        &amp;email.ID, &amp;email.FilePath, &amp;email.MessageID, &amp;email.Subject, &amp;email.Sender, &amp;email.SenderName,
+                        &amp;email.Recipients, &amp;email.CC, &amp;email.BCC, &amp;email.Date, &amp;email.BodyText, &amp;email.BodyHTML,
+                        &amp;email.HasAttachments, &amp;email.AttachmentCount, &amp;email.RawHeaders, &amp;email.FileSize,
+                        &amp;email.IndexedAt, &amp;email.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan email: %w", err)
+                }</span>
+                <span class="cov8" title="1">emails = append(emails, email)</span>
+        }
+
+        <span class="cov8" title="1">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating emails: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return emails, nil</span>
+}
+
+// CountEmails returns the total number of emails
+func (db *DB) CountEmails() (int, error) <span class="cov8" title="1">{
+        var count int
+        err := db.QueryRow("SELECT COUNT(*) FROM emails").Scan(&amp;count)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to count emails: %w", err)
+        }</span>
+        <span class="cov8" title="1">return count, nil</span>
+}
+
+// InsertAttachment inserts an attachment into the database
+func (db *DB) InsertAttachment(att *Attachment) (int64, error) <span class="cov8" title="1">{
+        result, err := db.Exec(`
+                INSERT INTO attachments (email_id, filename, content_type, size, data)
+                VALUES (?, ?, ?, ?, ?)
+        `, att.EmailID, att.Filename, att.ContentType, att.Size, att.Data)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to insert attachment: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return result.LastInsertId()</span>
+}
+
+// GetAttachmentsByEmailID retrieves all attachments for an email
+func (db *DB) GetAttachmentsByEmailID(emailID int64) ([]*Attachment, error) <span class="cov8" title="1">{
+        rows, err := db.Query(`
+                SELECT id, email_id, filename, content_type, size, data
+                FROM attachments WHERE email_id = ?
+        `, emailID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get attachments: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var attachments []*Attachment
+        for rows.Next() </span><span class="cov8" title="1">{
+                att := &amp;Attachment{}
+                err := rows.Scan(&amp;att.ID, &amp;att.EmailID, &amp;att.Filename, &amp;att.ContentType, &amp;att.Size, &amp;att.Data)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan attachment: %w", err)
+                }</span>
+                <span class="cov8" title="1">attachments = append(attachments, att)</span>
+        }
+
+        <span class="cov8" title="1">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating attachments: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return attachments, nil</span>
+}
+
+// GetAttachmentByID retrieves a single attachment by ID
+func (db *DB) GetAttachmentByID(id int64) (*Attachment, error) <span class="cov8" title="1">{
+        att := &amp;Attachment{}
+        err := db.QueryRow(`
+                SELECT id, email_id, filename, content_type, size, data
+                FROM attachments WHERE id = ?
+        `, id).Scan(&amp;att.ID, &amp;att.EmailID, &amp;att.Filename, &amp;att.ContentType, &amp;att.Size, &amp;att.Data)
+        if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get attachment: %w", err)
+        }</span>
+        <span class="cov8" title="1">return att, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package db
+
+import (
+        "fmt"
+        "strings"
+)
+
+// EmailSearchResult represents a search result with snippet
+type EmailSearchResult struct {
+        Email
+        Snippet string
+}
+
+// SearchEmails performs a full-text search on emails using FTS5
+func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error) <span class="cov8" title="1">{
+        if query == "" </span><span class="cov8" title="1">{
+                // If no query, just return recent emails
+                emails, err := db.ListEmails(limit, 0)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">results := make([]*EmailSearchResult, len(emails))
+                for i, email := range emails </span><span class="cov8" title="1">{
+                        results[i] = &amp;EmailSearchResult{
+                                Email:   *email,
+                                Snippet: truncateText(email.BodyText, 200),
+                        }
+                }</span>
+                <span class="cov8" title="1">return results, nil</span>
+        }
+
+        // Build FTS5 MATCH query with fuzzy matching
+        // Add wildcards to each term for fuzzy matching: "john doe" -&gt; "john* doe*"
+        <span class="cov8" title="1">terms := strings.Fields(query)
+        fuzzyTerms := make([]string, len(terms))
+        for i, term := range terms </span><span class="cov8" title="1">{
+                // Escape special FTS5 characters
+                term = strings.ReplaceAll(term, `"`, `""`)
+                fuzzyTerms[i] = term + "*"
+        }</span>
+        <span class="cov8" title="1">fuzzyQuery := strings.Join(fuzzyTerms, " ")
+
+        sql := `
+                SELECT
+                        e.id, e.file_path, e.message_id, e.subject, e.sender, e.sender_name,
+                        e.recipients, e.cc, e.bcc, e.date, e.body_text, e.body_html,
+                        e.has_attachments, e.attachment_count, e.raw_headers, e.file_size,
+                        e.indexed_at, e.updated_at,
+                        snippet(emails_fts, 4, '&lt;mark&gt;', '&lt;/mark&gt;', '...', 32) as snippet
+                FROM emails e
+                JOIN emails_fts ON e.id = emails_fts.rowid
+                WHERE emails_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+        `
+
+        rows, err := db.Query(sql, fuzzyQuery, limit)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search emails: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var results []*EmailSearchResult
+        for rows.Next() </span><span class="cov8" title="1">{
+                result := &amp;EmailSearchResult{}
+                err := rows.Scan(
+                        &amp;result.ID, &amp;result.FilePath, &amp;result.MessageID, &amp;result.Subject, &amp;result.Sender, &amp;result.SenderName,
+                        &amp;result.Recipients, &amp;result.CC, &amp;result.BCC, &amp;result.Date, &amp;result.BodyText, &amp;result.BodyHTML,
+                        &amp;result.HasAttachments, &amp;result.AttachmentCount, &amp;result.RawHeaders, &amp;result.FileSize,
+                        &amp;result.IndexedAt, &amp;result.UpdatedAt,
+                        &amp;result.Snippet,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan search result: %w", err)
+                }</span>
+                <span class="cov8" title="1">results = append(results, result)</span>
+        }
+
+        <span class="cov8" title="1">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating search results: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return results, nil</span>
+}
+
+// SearchEmailsWithFilters performs a search with additional filters
+func (db *DB) SearchEmailsWithFilters(query, sender string, hasAttachments bool, dateFrom, dateTo string, limit int) ([]*EmailSearchResult, error) <span class="cov8" title="1">{
+        // Build WHERE clause
+        var conditions []string
+        var args []interface{}
+
+        // FTS5 search
+        if query != "" </span><span class="cov8" title="1">{
+                terms := strings.Fields(query)
+                fuzzyTerms := make([]string, len(terms))
+                for i, term := range terms </span><span class="cov8" title="1">{
+                        term = strings.ReplaceAll(term, `"`, `""`)
+                        fuzzyTerms[i] = term + "*"
+                }</span>
+                <span class="cov8" title="1">fuzzyQuery := strings.Join(fuzzyTerms, " ")
+                conditions = append(conditions, "emails_fts MATCH ?")
+                args = append(args, fuzzyQuery)</span>
+        }
+
+        // Sender filter
+        <span class="cov8" title="1">if sender != "" </span><span class="cov8" title="1">{
+                conditions = append(conditions, "e.sender LIKE ?")
+                args = append(args, "%"+sender+"%")
+        }</span>
+
+        // Attachments filter
+        <span class="cov8" title="1">if hasAttachments </span><span class="cov8" title="1">{
+                conditions = append(conditions, "e.has_attachments = 1")
+        }</span>
+
+        // Date range filters
+        <span class="cov8" title="1">if dateFrom != "" </span><span class="cov0" title="0">{
+                conditions = append(conditions, "e.date &gt;= ?")
+                args = append(args, dateFrom)
+        }</span>
+        <span class="cov8" title="1">if dateTo != "" </span><span class="cov0" title="0">{
+                conditions = append(conditions, "e.date &lt;= ?")
+                args = append(args, dateTo)
+        }</span>
+
+        // Build SQL query
+        <span class="cov8" title="1">sqlQuery := `
+                SELECT
+                        e.id, e.file_path, e.message_id, e.subject, e.sender, e.sender_name,
+                        e.recipients, e.cc, e.bcc, e.date, e.body_text, e.body_html,
+                        e.has_attachments, e.attachment_count, e.raw_headers, e.file_size,
+                        e.indexed_at, e.updated_at
+        `
+
+        var snippet string
+        if query != "" </span><span class="cov8" title="1">{
+                snippet = `, snippet(emails_fts, 4, '&lt;mark&gt;', '&lt;/mark&gt;', '...', 32) as snippet`
+                sqlQuery += snippet + `
+                FROM emails e
+                JOIN emails_fts ON e.id = emails_fts.rowid
+                `
+        }</span> else<span class="cov8" title="1"> {
+                snippet = `, '' as snippet`
+                sqlQuery += snippet + `
+                FROM emails e
+                `
+        }</span>
+
+        <span class="cov8" title="1">if len(conditions) &gt; 0 </span><span class="cov8" title="1">{
+                sqlQuery += " WHERE " + strings.Join(conditions, " AND ")
+        }</span>
+
+        <span class="cov8" title="1">if query != "" </span><span class="cov8" title="1">{
+                sqlQuery += " ORDER BY rank"
+        }</span> else<span class="cov8" title="1"> {
+                sqlQuery += " ORDER BY e.date DESC"
+        }</span>
+
+        <span class="cov8" title="1">sqlQuery += " LIMIT ?"
+        args = append(args, limit)
+
+        rows, err := db.Query(sqlQuery, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search with filters: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var results []*EmailSearchResult
+        for rows.Next() </span><span class="cov8" title="1">{
+                result := &amp;EmailSearchResult{}
+                err := rows.Scan(
+                        &amp;result.ID, &amp;result.FilePath, &amp;result.MessageID, &amp;result.Subject, &amp;result.Sender, &amp;result.SenderName,
+                        &amp;result.Recipients, &amp;result.CC, &amp;result.BCC, &amp;result.Date, &amp;result.BodyText, &amp;result.BodyHTML,
+                        &amp;result.HasAttachments, &amp;result.AttachmentCount, &amp;result.RawHeaders, &amp;result.FileSize,
+                        &amp;result.IndexedAt, &amp;result.UpdatedAt,
+                        &amp;result.Snippet,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan filtered result: %w", err)
+                }</span>
+
+                // Generate snippet if not from FTS5
+                <span class="cov8" title="1">if result.Snippet == "" </span><span class="cov8" title="1">{
+                        result.Snippet = truncateText(result.BodyText, 200)
+                }</span>
+
+                <span class="cov8" title="1">results = append(results, result)</span>
+        }
+
+        <span class="cov8" title="1">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating filtered results: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return results, nil</span>
+}
+
+// truncateText truncates text to maxLen characters
+func truncateText(text string, maxLen int) string <span class="cov8" title="1">{
+        if len(text) &lt;= maxLen </span><span class="cov8" title="1">{
+                return text
+        }</span>
+        <span class="cov8" title="1">return text[:maxLen] + "..."</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package db
+
+import (
+        "database/sql"
+        "fmt"
+        "testing"
+        "time"
+)
+
+// setupTestDB creates an in-memory SQLite database for testing
+func setupTestDB(t *testing.T) *DB <span class="cov8" title="1">{
+        t.Helper()
+
+        db, err := Open(":memory:")
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("Failed to create test database: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return db</span>
+}
+
+// cleanupTestDB closes the test database
+func cleanupTestDB(t *testing.T, db *DB) <span class="cov8" title="1">{
+        t.Helper()
+
+        if err := db.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Errorf("Failed to close test database: %v", err)
+        }</span>
+}
+
+// createTestEmail creates a test email with default values
+func createTestEmail(subject, sender, body string) *Email <span class="cov8" title="1">{
+        return &amp;Email{
+                FilePath:        fmt.Sprintf("/test/%s.eml", subject),
+                MessageID:       fmt.Sprintf("&lt;%s@test.com&gt;", subject),
+                Subject:         subject,
+                Sender:          sender,
+                SenderName:      "Test Sender",
+                Recipients:      "recipient@test.com",
+                CC:              "",
+                BCC:             "",
+                Date:            sql.NullTime{Time: time.Now(), Valid: true},
+                BodyText:        body,
+                BodyHTML:        "",
+                HasAttachments:  false,
+                AttachmentCount: 0,
+                RawHeaders:      fmt.Sprintf("From: %s\nSubject: %s\n", sender, subject),
+                FileSize:        int64(len(body)),
+        }
+}</span>
+
+// insertTestEmails inserts multiple test emails and returns them
+func insertTestEmails(t *testing.T, db *DB, emails []*Email) []*Email <span class="cov8" title="1">{
+        t.Helper()
+
+        for i, email := range emails </span><span class="cov8" title="1">{
+                id, err := db.InsertEmail(email)
+                if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Failed to insert test email %d: %v", i, err)
+                }</span>
+                <span class="cov8" title="1">emails[i].ID = id</span>
+        }
+
+        <span class="cov8" title="1">return emails</span>
+}
+
+// createTestEmailWithDate creates a test email with a specific date
+func createTestEmailWithDate(subject, sender, body string, date time.Time) *Email <span class="cov8" title="1">{
+        email := createTestEmail(subject, sender, body)
+        email.Date = sql.NullTime{Time: date, Valid: true}
+        return email
+}</span>
+
+// createTestEmailWithAttachments creates a test email with attachments
+func createTestEmailWithAttachments(subject, sender, body string, attachmentCount int) *Email <span class="cov8" title="1">{
+        email := createTestEmail(subject, sender, body)
+        email.HasAttachments = attachmentCount &gt; 0
+        email.AttachmentCount = attachmentCount
+        return email
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package handlers
+
+import (
+        "net/http"
+        "strconv"
+
+        "github.com/go-chi/chi/v5"
+)
+
+// DownloadAttachment handles attachment downloads
+func (h *Handlers) DownloadAttachment(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get attachment ID from URL
+        idStr := chi.URLParam(r, "id")
+        id, err := strconv.ParseInt(idStr, 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+                return
+        }</span>
+
+        // Get attachment from database
+        <span class="cov0" title="0">att, err := h.db.GetAttachmentByID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Failed to load attachment", http.StatusInternalServerError)
+                return
+        }</span>
+        <span class="cov0" title="0">if att == nil </span><span class="cov0" title="0">{
+                http.Error(w, "Attachment not found", http.StatusNotFound)
+                return
+        }</span>
+
+        // Set headers for download
+        <span class="cov0" title="0">w.Header().Set("Content-Disposition", "attachment; filename=\""+att.Filename+"\"")
+        w.Header().Set("Content-Type", att.ContentType)
+        w.Header().Set("Content-Length", strconv.FormatInt(att.Size, 10))
+
+        // Write attachment data
+        w.Write(att.Data)</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package handlers
+
+import (
+        "fmt"
+        "html"
+        "net/http"
+        "strconv"
+
+        "github.com/go-chi/chi/v5"
+)
+
+// ViewEmail handles displaying a single email
+func (h *Handlers) ViewEmail(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get email ID from URL
+        idStr := chi.URLParam(r, "id")
+        id, err := strconv.ParseInt(idStr, 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Invalid email ID", http.StatusBadRequest)
+                return
+        }</span>
+
+        // Get email from database
+        <span class="cov0" title="0">email, err := h.db.GetEmailByID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Failed to load email", http.StatusInternalServerError)
+                return
+        }</span>
+        <span class="cov0" title="0">if email == nil </span><span class="cov0" title="0">{
+                http.Error(w, "Email not found", http.StatusNotFound)
+                return
+        }</span>
+
+        // Get attachments
+        <span class="cov0" title="0">attachments, err := h.db.GetAttachmentsByEmailID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Failed to load attachments", http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">subject := email.Subject
+        if subject == "" </span><span class="cov0" title="0">{
+                subject = "(No Subject)"
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+        fmt.Fprintf(w, `&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+        &lt;title&gt;%s - EML Viewer&lt;/title&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+        &lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body class="bg-gray-100"&gt;
+        &lt;div class="container mx-auto px-4 py-8"&gt;
+                &lt;div class="mb-4"&gt;
+                        &lt;a href="/" class="text-blue-600 hover:text-blue-800"&gt;&amp;larr; Back to list&lt;/a&gt;
+                &lt;/div&gt;
+
+                &lt;div class="bg-white rounded-lg shadow p-6"&gt;
+                        &lt;h1 class="text-3xl font-bold text-gray-900 mb-4"&gt;%s&lt;/h1&gt;
+
+                        &lt;div class="border-b border-gray-200 pb-4 mb-4"&gt;
+                                &lt;div class="grid grid-cols-1 gap-2"&gt;
+                                        &lt;div&gt;
+                                                &lt;span class="font-semibold text-gray-700"&gt;From:&lt;/span&gt;
+                                                &lt;span class="text-gray-900"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;
+                                        &lt;div&gt;
+                                                &lt;span class="font-semibold text-gray-700"&gt;To:&lt;/span&gt;
+                                                &lt;span class="text-gray-900"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;`,
+                html.EscapeString(subject),
+                html.EscapeString(subject),
+                html.EscapeString(formatSender(email.SenderName, email.Sender)),
+                html.EscapeString(email.Recipients),
+        )
+
+        if email.CC != "" </span><span class="cov0" title="0">{
+                fmt.Fprintf(w, `
+                                        &lt;div&gt;
+                                                &lt;span class="font-semibold text-gray-700"&gt;CC:&lt;/span&gt;
+                                                &lt;span class="text-gray-900"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;`, html.EscapeString(email.CC))
+        }</span>
+
+        <span class="cov0" title="0">fmt.Fprintf(w, `
+                                        &lt;div&gt;
+                                                &lt;span class="font-semibold text-gray-700"&gt;Date:&lt;/span&gt;
+                                                &lt;span class="text-gray-900"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;
+                                &lt;/div&gt;
+                        &lt;/div&gt;`, email.GetDate().Format("Monday, January 2, 2006 at 15:04"))
+
+        // Attachments
+        if len(attachments) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Fprintf(w, `
+                        &lt;div class="mb-4"&gt;
+                                &lt;h3 class="font-semibold text-gray-700 mb-2"&gt;Attachments (%d):&lt;/h3&gt;
+                                &lt;div class="flex flex-wrap gap-2"&gt;`, len(attachments))
+
+                for _, att := range attachments </span><span class="cov0" title="0">{
+                        fmt.Fprintf(w, `
+                                        &lt;a href="/attachments/%d/download"
+                                           class="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 text-sm"&gt;
+                                                📎 %s (%s)
+                                        &lt;/a&gt;`,
+                                att.ID,
+                                html.EscapeString(att.Filename),
+                                formatSize(att.Size),
+                        )
+                }</span>
+
+                <span class="cov0" title="0">fmt.Fprintf(w, `
+                                &lt;/div&gt;
+                        &lt;/div&gt;`)</span>
+        }
+
+        // Email body
+        <span class="cov0" title="0">fmt.Fprintf(w, `
+                        &lt;div class="border-t border-gray-200 pt-4"&gt;
+                                &lt;h3 class="font-semibold text-gray-700 mb-2"&gt;Message:&lt;/h3&gt;`)
+
+        if email.BodyHTML != "" </span><span class="cov0" title="0">{
+                // Render HTML in sandboxed iframe
+                fmt.Fprintf(w, `
+                                &lt;iframe
+                                        sandbox="allow-same-origin"
+                                        srcdoc="%s"
+                                        class="w-full border border-gray-300 rounded"
+                                        style="min-height: 400px;"
+                                &gt;&lt;/iframe&gt;`,
+                        html.EscapeString(email.BodyHTML),
+                )
+        }</span> else<span class="cov0" title="0"> if email.BodyText != "" </span><span class="cov0" title="0">{
+                // Render plain text
+                fmt.Fprintf(w, `
+                                &lt;pre class="whitespace-pre-wrap text-gray-900 font-mono text-sm"&gt;%s&lt;/pre&gt;`,
+                        html.EscapeString(email.BodyText),
+                )
+        }</span> else<span class="cov0" title="0"> {
+                fmt.Fprintf(w, `
+                                &lt;p class="text-gray-500 italic"&gt;No message body&lt;/p&gt;`)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Fprintf(w, `
+                        &lt;/div&gt;
+
+                        &lt;details class="mt-6"&gt;
+                                &lt;summary class="cursor-pointer font-semibold text-gray-700"&gt;Raw Headers&lt;/summary&gt;
+                                &lt;pre class="mt-2 p-4 bg-gray-50 rounded text-xs overflow-x-auto"&gt;%s&lt;/pre&gt;
+                        &lt;/details&gt;
+                &lt;/div&gt;
+        &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;`, html.EscapeString(email.RawHeaders))</span>
+}
+
+func formatSender(name, email string) string <span class="cov0" title="0">{
+        if name != "" </span><span class="cov0" title="0">{
+                return fmt.Sprintf("%s &lt;%s&gt;", name, email)
+        }</span>
+        <span class="cov0" title="0">return email</span>
+}
+
+func formatSize(bytes int64) string <span class="cov0" title="0">{
+        const unit = 1024
+        if bytes &lt; unit </span><span class="cov0" title="0">{
+                return fmt.Sprintf("%d B", bytes)
+        }</span>
+        <span class="cov0" title="0">div, exp := int64(unit), 0
+        for n := bytes / unit; n &gt;= unit; n /= unit </span><span class="cov0" title="0">{
+                div *= unit
+                exp++
+        }</span>
+        <span class="cov0" title="0">return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package handlers
+
+import (
+        "html/template"
+
+        "github.com/felo/eml-viewer/internal/config"
+        "github.com/felo/eml-viewer/internal/db"
+)
+
+// Handlers holds all HTTP handlers and their dependencies
+type Handlers struct {
+        db        *db.DB
+        cfg       *config.Config
+        templates *template.Template
+}
+
+// New creates a new Handlers instance
+func New(database *db.DB, cfg *config.Config) *Handlers <span class="cov0" title="0">{
+        return &amp;Handlers{
+                db:  database,
+                cfg: cfg,
+                // templates will be loaded when we add template support
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package handlers
+
+import (
+        "fmt"
+        "net/http"
+)
+
+// Index handles the home page
+func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get email count
+        count, err := h.db.CountEmails()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Failed to get email count", http.StatusInternalServerError)
+                return
+        }</span>
+
+        // Get recent emails
+        <span class="cov0" title="0">emails, err := h.db.ListEmails(50, 0)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Failed to load emails", http.StatusInternalServerError)
+                return
+        }</span>
+
+        // For now, return simple HTML until we add templates
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+        fmt.Fprintf(w, `&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+        &lt;title&gt;EML Viewer&lt;/title&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+        &lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;
+        &lt;script src="https://unpkg.com/htmx.org@1.9.10"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body class="bg-gray-100"&gt;
+        &lt;div class="container mx-auto px-4 py-8"&gt;
+                &lt;header class="mb-8"&gt;
+                        &lt;h1 class="text-4xl font-bold text-gray-900 mb-2"&gt;EML Viewer&lt;/h1&gt;
+                        &lt;p class="text-gray-600"&gt;%d emails indexed&lt;/p&gt;
+                &lt;/header&gt;
+
+                &lt;div class="mb-6"&gt;
+                        &lt;input
+                                type="text"
+                                name="q"
+                                hx-get="/search"
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#email-list"
+                                hx-indicator="#search-spinner"
+                                placeholder="Search emails..."
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        /&gt;
+                        &lt;span id="search-spinner" class="htmx-indicator text-gray-500 text-sm ml-2"&gt;
+                                Searching...
+                        &lt;/span&gt;
+                &lt;/div&gt;
+
+                &lt;div id="email-list" class="space-y-4"&gt;`, count)
+
+        // Render email list
+        for _, email := range emails </span><span class="cov0" title="0">{
+                subject := email.Subject
+                if subject == "" </span><span class="cov0" title="0">{
+                        subject = "(No Subject)"
+                }</span>
+
+                <span class="cov0" title="0">fmt.Fprintf(w, `
+                        &lt;div class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"&gt;
+                                &lt;a href="/emails/%d" class="block"&gt;
+                                        &lt;div class="flex justify-between items-start mb-2"&gt;
+                                                &lt;h3 class="text-lg font-semibold text-gray-900"&gt;%s&lt;/h3&gt;
+                                                &lt;span class="text-sm text-gray-500"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;
+                                        &lt;p class="text-sm text-gray-600 mb-2"&gt;From: %s&lt;/p&gt;
+                                        &lt;p class="text-sm text-gray-500 line-clamp-2"&gt;%s&lt;/p&gt;
+                                &lt;/a&gt;
+                        &lt;/div&gt;`,
+                        email.ID,
+                        subject,
+                        email.GetDate().Format("Jan 2, 2006 15:04"),
+                        email.Sender,
+                        truncate(email.BodyText, 150),
+                )</span>
+        }
+
+        <span class="cov0" title="0">fmt.Fprintf(w, `
+                &lt;/div&gt;
+        &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;`)</span>
+}
+
+func truncate(s string, maxLen int) string <span class="cov0" title="0">{
+        if len(s) &lt;= maxLen </span><span class="cov0" title="0">{
+                return s
+        }</span>
+        <span class="cov0" title="0">return s[:maxLen] + "..."</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package handlers
+
+import (
+        "fmt"
+        "net/http"
+
+        "github.com/felo/eml-viewer/internal/indexer"
+)
+
+// Scan handles manual re-scanning of emails
+func (h *Handlers) Scan(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Create indexer
+        idx := indexer.NewIndexer(h.db, h.cfg.EmailsPath, false)
+
+        // Run indexing
+        result, err := idx.IndexAll()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, fmt.Sprintf("Indexing failed: %v", err), http.StatusInternalServerError)
+                return
+        }</span>
+
+        // Return result
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        fmt.Fprintf(w, `
+                &lt;div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded"&gt;
+                        &lt;p class="font-bold"&gt;Scan Complete!&lt;/p&gt;
+                        &lt;p&gt;Found: %d | New: %d | Skipped: %d | Failed: %d&lt;/p&gt;
+                &lt;/div&gt;`,
+                result.TotalFound,
+                result.NewIndexed,
+                result.Skipped,
+                result.Failed,
+        )</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package handlers
+
+import (
+        "fmt"
+        "html"
+        "log"
+        "net/http"
+)
+
+// Search handles search requests
+func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        query := r.URL.Query().Get("q")
+
+        // Perform search
+        results, err := h.db.SearchEmails(query, 50)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Search error: %v", err)
+                http.Error(w, fmt.Sprintf("Search failed: %v", err), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+        // Return HTML fragment for HTMX
+        if len(results) == 0 </span><span class="cov0" title="0">{
+                fmt.Fprintf(w, `
+                        &lt;div class="text-center py-8 text-gray-500"&gt;
+                                &lt;p&gt;No emails found&lt;/p&gt;
+                        &lt;/div&gt;`)
+                return
+        }</span>
+
+        <span class="cov0" title="0">for _, result := range results </span><span class="cov0" title="0">{
+                subject := result.Subject
+                if subject == "" </span><span class="cov0" title="0">{
+                        subject = "(No Subject)"
+                }</span>
+
+                <span class="cov0" title="0">snippet := result.Snippet
+                if snippet == "" </span><span class="cov0" title="0">{
+                        snippet = truncate(result.BodyText, 150)
+                }</span>
+
+                <span class="cov0" title="0">fmt.Fprintf(w, `
+                        &lt;div class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"&gt;
+                                &lt;a href="/emails/%d" class="block"&gt;
+                                        &lt;div class="flex justify-between items-start mb-2"&gt;
+                                                &lt;h3 class="text-lg font-semibold text-gray-900"&gt;%s&lt;/h3&gt;
+                                                &lt;span class="text-sm text-gray-500"&gt;%s&lt;/span&gt;
+                                        &lt;/div&gt;
+                                        &lt;p class="text-sm text-gray-600 mb-2"&gt;From: %s&lt;/p&gt;
+                                        &lt;p class="text-sm text-gray-500 line-clamp-2"&gt;%s&lt;/p&gt;
+                                &lt;/a&gt;
+                        &lt;/div&gt;`,
+                        result.ID,
+                        html.EscapeString(subject),
+                        result.GetDate().Format("Jan 2, 2006 15:04"),
+                        html.EscapeString(result.Sender),
+                        snippet, // Already contains HTML marks for highlighting
+                )</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package indexer
+
+import (
+        "database/sql"
+        "fmt"
+        "log"
+        "os"
+        "strings"
+
+        "github.com/felo/eml-viewer/internal/db"
+        "github.com/felo/eml-viewer/internal/parser"
+        "github.com/felo/eml-viewer/internal/scanner"
+)
+
+// Indexer handles email indexing operations
+type Indexer struct {
+        db      *db.DB
+        scanner *scanner.Scanner
+        verbose bool
+}
+
+// NewIndexer creates a new indexer
+func NewIndexer(database *db.DB, emailsPath string, verbose bool) *Indexer <span class="cov0" title="0">{
+        return &amp;Indexer{
+                db:      database,
+                scanner: scanner.NewScanner(emailsPath),
+                verbose: verbose,
+        }
+}</span>
+
+// IndexResult contains statistics about an indexing operation
+type IndexResult struct {
+        TotalFound  int
+        NewIndexed  int
+        Skipped     int
+        Failed      int
+        FailedFiles []string
+}
+
+// IndexAll scans and indexes all .eml files
+func (idx *Indexer) IndexAll() (*IndexResult, error) <span class="cov0" title="0">{
+        result := &amp;IndexResult{}
+
+        // Get all .eml files
+        files, err := idx.scanner.Scan()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to scan for files: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">result.TotalFound = len(files)
+
+        if idx.verbose </span><span class="cov0" title="0">{
+                log.Printf("Found %d .eml files to process\n", result.TotalFound)
+        }</span>
+
+        // Process each file
+        <span class="cov0" title="0">for i, filePath := range files </span><span class="cov0" title="0">{
+                if idx.verbose &amp;&amp; (i+1)%10 == 0 </span><span class="cov0" title="0">{
+                        log.Printf("Processing file %d/%d...\n", i+1, result.TotalFound)
+                }</span>
+
+                // Check if already indexed
+                <span class="cov0" title="0">exists, err := idx.db.EmailExists(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error checking if email exists: %v\n", err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">if exists </span><span class="cov0" title="0">{
+                        result.Skipped++
+                        continue</span>
+                }
+
+                // Parse the email
+                <span class="cov0" title="0">parsed, err := parser.ParseEMLFile(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error parsing %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Get file size
+                <span class="cov0" title="0">fileInfo, err := os.Stat(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error getting file info for %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Create email record
+                <span class="cov0" title="0">email := &amp;db.Email{
+                        FilePath:        filePath,
+                        MessageID:       parsed.MessageID,
+                        Subject:         parsed.Subject,
+                        Sender:          parsed.Sender,
+                        SenderName:      parsed.SenderName,
+                        Recipients:      strings.Join(parsed.Recipients, ", "),
+                        CC:              strings.Join(parsed.CC, ", "),
+                        BCC:             strings.Join(parsed.BCC, ", "),
+                        Date:            sql.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
+                        BodyText:        parsed.BodyText,
+                        BodyHTML:        parsed.BodyHTML,
+                        HasAttachments:  len(parsed.Attachments) &gt; 0,
+                        AttachmentCount: len(parsed.Attachments),
+                        RawHeaders:      parsed.RawHeaders,
+                        FileSize:        fileInfo.Size(),
+                }
+
+                // Insert email
+                emailID, err := idx.db.InsertEmail(email)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error inserting email %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Insert attachments
+                <span class="cov0" title="0">for _, att := range parsed.Attachments </span><span class="cov0" title="0">{
+                        attachment := &amp;db.Attachment{
+                                EmailID:     emailID,
+                                Filename:    att.Filename,
+                                ContentType: att.ContentType,
+                                Size:        att.Size,
+                                Data:        att.Data,
+                        }
+
+                        _, err := idx.db.InsertAttachment(attachment)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Error inserting attachment for email %s: %v\n", filePath, err)
+                                // Continue even if attachment insertion fails
+                        }</span>
+                }
+
+                <span class="cov0" title="0">result.NewIndexed++</span>
+        }
+
+        <span class="cov0" title="0">if idx.verbose </span><span class="cov0" title="0">{
+                log.Printf("Indexing complete: %d new, %d skipped, %d failed\n",
+                        result.NewIndexed, result.Skipped, result.Failed)
+        }</span>
+
+        <span class="cov0" title="0">return result, nil</span>
+}
+
+// IndexWithProgress indexes all files and reports progress via a callback
+func (idx *Indexer) IndexWithProgress(progress func(current, total int, filePath string)) (*IndexResult, error) <span class="cov0" title="0">{
+        result := &amp;IndexResult{}
+
+        // Get all .eml files
+        files, err := idx.scanner.Scan()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to scan for files: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">result.TotalFound = len(files)
+
+        // Process each file
+        for i, filePath := range files </span><span class="cov0" title="0">{
+                if progress != nil </span><span class="cov0" title="0">{
+                        progress(i+1, result.TotalFound, filePath)
+                }</span>
+
+                // Check if already indexed
+                <span class="cov0" title="0">exists, err := idx.db.EmailExists(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error checking if email exists: %v\n", err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">if exists </span><span class="cov0" title="0">{
+                        result.Skipped++
+                        continue</span>
+                }
+
+                // Parse the email
+                <span class="cov0" title="0">parsed, err := parser.ParseEMLFile(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error parsing %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Get file size
+                <span class="cov0" title="0">fileInfo, err := os.Stat(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error getting file info for %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Create email record
+                <span class="cov0" title="0">email := &amp;db.Email{
+                        FilePath:        filePath,
+                        MessageID:       parsed.MessageID,
+                        Subject:         parsed.Subject,
+                        Sender:          parsed.Sender,
+                        SenderName:      parsed.SenderName,
+                        Recipients:      strings.Join(parsed.Recipients, ", "),
+                        CC:              strings.Join(parsed.CC, ", "),
+                        BCC:             strings.Join(parsed.BCC, ", "),
+                        Date:            sql.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
+                        BodyText:        parsed.BodyText,
+                        BodyHTML:        parsed.BodyHTML,
+                        HasAttachments:  len(parsed.Attachments) &gt; 0,
+                        AttachmentCount: len(parsed.Attachments),
+                        RawHeaders:      parsed.RawHeaders,
+                        FileSize:        fileInfo.Size(),
+                }
+
+                // Insert email
+                emailID, err := idx.db.InsertEmail(email)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error inserting email %s: %v\n", filePath, err)
+                        result.Failed++
+                        result.FailedFiles = append(result.FailedFiles, filePath)
+                        continue</span>
+                }
+
+                // Insert attachments
+                <span class="cov0" title="0">for _, att := range parsed.Attachments </span><span class="cov0" title="0">{
+                        attachment := &amp;db.Attachment{
+                                EmailID:     emailID,
+                                Filename:    att.Filename,
+                                ContentType: att.ContentType,
+                                Size:        att.Size,
+                                Data:        att.Data,
+                        }
+
+                        _, err := idx.db.InsertAttachment(attachment)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Error inserting attachment for email %s: %v\n", filePath, err)
+                        }</span>
+                }
+
+                <span class="cov0" title="0">result.NewIndexed++</span>
+        }
+
+        <span class="cov0" title="0">return result, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package parser
+
+import (
+        "bytes"
+        "fmt"
+        "io"
+        "mime"
+        "os"
+        "strings"
+        "time"
+
+        "github.com/emersion/go-message/charset"
+        "github.com/emersion/go-message/mail"
+        "golang.org/x/text/encoding/charmap"
+)
+
+func init() <span class="cov8" title="1">{
+        // Register additional charsets that are commonly used in emails
+        charset.RegisterEncoding("windows-1252", charmap.Windows1252)
+        charset.RegisterEncoding("iso-8859-1", charmap.ISO8859_1)
+        charset.RegisterEncoding("iso-8859-15", charmap.ISO8859_15)
+}</span>
+
+// ParseEMLFile parses an .eml file and returns a ParsedEmail
+func ParseEMLFile(filePath string) (*ParsedEmail, error) <span class="cov8" title="1">{
+        // Open the file
+        f, err := os.Open(filePath)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to open file: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        // Parse the email
+        return ParseEML(f)</span>
+}
+
+// ParseEML parses an email from a reader
+func ParseEML(r io.Reader) (*ParsedEmail, error) <span class="cov8" title="1">{
+        // Read the entire message first to capture raw headers
+        buf := new(bytes.Buffer)
+        if _, err := io.Copy(buf, r); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to read email: %w", err)
+        }</span>
+
+        // Parse the message
+        <span class="cov8" title="1">mr, err := mail.CreateReader(bytes.NewReader(buf.Bytes()))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create mail reader: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">parsed := &amp;ParsedEmail{}
+
+        // Extract raw headers
+        parsed.RawHeaders = extractRawHeaders(buf.String())
+
+        // Parse headers
+        header := mr.Header
+
+        // Message-ID
+        if msgID := header.Get("Message-Id"); msgID != "" </span><span class="cov8" title="1">{
+                parsed.MessageID = msgID
+        }</span>
+
+        // Subject - decode MIME words
+        <span class="cov8" title="1">parsed.Subject = decodeMIMEWord(header.Get("Subject"))
+
+        // From
+        if fromAddrs, err := header.AddressList("From"); err == nil &amp;&amp; len(fromAddrs) &gt; 0 </span><span class="cov8" title="1">{
+                parsed.Sender = fromAddrs[0].Address
+                parsed.SenderName = fromAddrs[0].Name
+        }</span>
+
+        // To
+        <span class="cov8" title="1">if toAddrs, err := header.AddressList("To"); err == nil </span><span class="cov8" title="1">{
+                for _, addr := range toAddrs </span><span class="cov8" title="1">{
+                        parsed.Recipients = append(parsed.Recipients, addr.Address)
+                }</span>
+        }
+
+        // CC
+        <span class="cov8" title="1">if ccAddrs, err := header.AddressList("Cc"); err == nil </span><span class="cov8" title="1">{
+                for _, addr := range ccAddrs </span><span class="cov8" title="1">{
+                        parsed.CC = append(parsed.CC, addr.Address)
+                }</span>
+        }
+
+        // BCC
+        <span class="cov8" title="1">if bccAddrs, err := header.AddressList("Bcc"); err == nil </span><span class="cov8" title="1">{
+                for _, addr := range bccAddrs </span><span class="cov8" title="1">{
+                        parsed.BCC = append(parsed.BCC, addr.Address)
+                }</span>
+        }
+
+        // Date
+        <span class="cov8" title="1">if date, err := header.Date(); err == nil </span><span class="cov8" title="1">{
+                parsed.Date = date
+        }</span> else<span class="cov0" title="0"> {
+                // Use current time as fallback
+                parsed.Date = time.Now()
+        }</span>
+
+        // Parse body and attachments
+        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                part, err := mr.NextPart()
+                if err == io.EOF </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to read part: %w", err)
+                }</span>
+
+                <span class="cov8" title="1">switch h := part.Header.(type) </span>{
+                case *mail.InlineHeader:<span class="cov8" title="1">
+                        // This is the message body
+                        contentType, _, _ := h.ContentType()
+                        body, err := io.ReadAll(part.Body)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to read body: %w", err)
+                        }</span>
+
+                        <span class="cov8" title="1">if strings.HasPrefix(contentType, "text/plain") </span><span class="cov8" title="1">{
+                                parsed.BodyText = string(body)
+                        }</span> else<span class="cov8" title="1"> if strings.HasPrefix(contentType, "text/html") </span><span class="cov8" title="1">{
+                                parsed.BodyHTML = string(body)
+                        }</span>
+
+                case *mail.AttachmentHeader:<span class="cov8" title="1">
+                        // This is an attachment
+                        filename, _ := h.Filename()
+                        contentType, _, _ := h.ContentType()
+
+                        data, err := io.ReadAll(part.Body)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to read attachment: %w", err)
+                        }</span>
+
+                        <span class="cov8" title="1">parsed.Attachments = append(parsed.Attachments, ParsedAttachment{
+                                Filename:    filename,
+                                ContentType: contentType,
+                                Size:        int64(len(data)),
+                                Data:        data,
+                        })</span>
+                }
+        }
+
+        <span class="cov8" title="1">return parsed, nil</span>
+}
+
+// extractRawHeaders extracts the raw header section from the email
+func extractRawHeaders(emailContent string) string <span class="cov8" title="1">{
+        // Headers end at the first blank line
+        parts := strings.SplitN(emailContent, "\r\n\r\n", 2)
+        if len(parts) &lt; 2 </span><span class="cov8" title="1">{
+                parts = strings.SplitN(emailContent, "\n\n", 2)
+        }</span>
+        <span class="cov8" title="1">if len(parts) &gt; 0 </span><span class="cov8" title="1">{
+                return parts[0]
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+// decodeMIMEWord decodes MIME-encoded words (RFC 2047)
+// Example: =?UTF-8?Q?Invitaci=C3=B3n?= -&gt; Invitación
+func decodeMIMEWord(s string) string <span class="cov8" title="1">{
+        dec := new(mime.WordDecoder)
+        decoded, err := dec.DecodeHeader(s)
+        if err != nil </span><span class="cov0" title="0">{
+                // If decoding fails, return original string
+                return s
+        }</span>
+        <span class="cov8" title="1">return decoded</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package scanner
+
+import (
+        "fmt"
+        "os"
+        "path/filepath"
+        "strings"
+)
+
+// ScanResult contains information about a scan operation
+type ScanResult struct {
+        TotalFiles     int
+        ProcessedFiles int
+        SkippedFiles   int
+        ErrorFiles     int
+        Errors         []error
+}
+
+// Scanner scans directories for .eml files
+type Scanner struct {
+        rootPath string
+}
+
+// NewScanner creates a new scanner for the given root path
+func NewScanner(rootPath string) *Scanner <span class="cov0" title="0">{
+        return &amp;Scanner{
+                rootPath: rootPath,
+        }
+}</span>
+
+// Scan recursively scans for .eml files
+func (s *Scanner) Scan() ([]string, error) <span class="cov0" title="0">{
+        var emlFiles []string
+
+        err := filepath.Walk(s.rootPath, func(path string, info os.FileInfo, err error) error </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("error accessing path %s: %w", path, err)
+                }</span>
+
+                // Skip directories
+                <span class="cov0" title="0">if info.IsDir() </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+
+                // Check if file has .eml extension
+                <span class="cov0" title="0">if strings.ToLower(filepath.Ext(path)) == ".eml" </span><span class="cov0" title="0">{
+                        emlFiles = append(emlFiles, path)
+                }</span>
+
+                <span class="cov0" title="0">return nil</span>
+        })
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to scan directory: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return emlFiles, nil</span>
+}
+
+// ScanWithCallback scans for .eml files and calls the callback for each file found
+func (s *Scanner) ScanWithCallback(callback func(path string, index, total int) error) error <span class="cov0" title="0">{
+        // First, get all files
+        files, err := s.Scan()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">total := len(files)
+
+        // Process each file
+        for i, file := range files </span><span class="cov0" title="0">{
+                if err := callback(file, i+1, total); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("callback error for file %s: %w", file, err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// CountEMLFiles counts the number of .eml files without scanning them all
+func (s *Scanner) CountEMLFiles() (int, error) <span class="cov0" title="0">{
+        count := 0
+
+        err := filepath.Walk(s.rootPath, func(path string, info os.FileInfo, err error) error </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+
+                <span class="cov0" title="0">if !info.IsDir() &amp;&amp; strings.ToLower(filepath.Ext(path)) == ".eml" </span><span class="cov0" title="0">{
+                        count++
+                }</span>
+
+                <span class="cov0" title="0">return nil</span>
+        })
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to count files: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return count, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package main
+
+import (
+        "context"
+        "log"
+        "net/http"
+        "os"
+        "os/exec"
+        "os/signal"
+        "runtime"
+        "syscall"
+        "time"
+
+        "github.com/felo/eml-viewer/internal/config"
+        "github.com/felo/eml-viewer/internal/db"
+        "github.com/felo/eml-viewer/internal/handlers"
+        "github.com/felo/eml-viewer/internal/indexer"
+        "github.com/go-chi/chi/v5"
+        "github.com/go-chi/chi/v5/middleware"
+)
+
+func main() <span class="cov0" title="0">{
+        // Load configuration
+        cfg := config.Default()
+
+        // Open database
+        database, err := db.Open(cfg.DBPath)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to open database: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer database.Close()
+
+        log.Printf("Database opened at: %s", cfg.DBPath)
+
+        // Check if emails directory exists
+        if _, err := os.Stat(cfg.EmailsPath); os.IsNotExist(err) </span><span class="cov0" title="0">{
+                log.Printf("Emails directory not found: %s", cfg.EmailsPath)
+                log.Printf("Creating directory...")
+                if err := os.MkdirAll(cfg.EmailsPath, 0755); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to create emails directory: %v", err)
+                }</span>
+                <span class="cov0" title="0">log.Printf("Created emails directory at: %s", cfg.EmailsPath)
+                log.Printf("Please place your .eml files in this directory and restart the application")</span>
+        } else<span class="cov0" title="0"> {
+                // Index emails on startup
+                log.Printf("Indexing emails from: %s", cfg.EmailsPath)
+                idx := indexer.NewIndexer(database, cfg.EmailsPath, true)
+                result, err := idx.IndexAll()
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Warning: Indexing failed: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        log.Printf("Indexing complete: %d new, %d skipped, %d failed",
+                                result.NewIndexed, result.Skipped, result.Failed)
+                }</span>
+        }
+
+        // Initialize handlers
+        <span class="cov0" title="0">h := handlers.New(database, cfg)
+
+        // Set up router
+        r := chi.NewRouter()
+
+        // Middleware
+        r.Use(middleware.Logger)
+        r.Use(middleware.Recoverer)
+        r.Use(middleware.Compress(5))
+
+        // Routes
+        r.Get("/", h.Index)
+        r.Get("/emails/{id}", h.ViewEmail)
+        r.Get("/search", h.Search)
+        r.Get("/attachments/{id}/download", h.DownloadAttachment)
+        r.Post("/scan", h.Scan)
+
+        // Static files (will be added later with embedded assets)
+        // For now, serve from filesystem
+        workDir, _ := os.Getwd()
+        filesDir := http.Dir(workDir + "/web/static")
+        r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(filesDir)))
+
+        // Create server
+        srv := &amp;http.Server{
+                Addr:         cfg.Address(),
+                Handler:      r,
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 15 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
+
+        // Start server in goroutine
+        go func() </span><span class="cov0" title="0">{
+                log.Printf("Starting server on %s", cfg.URL())
+                if err := srv.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("Server failed: %v", err)
+                }</span>
+        }()
+
+        // Auto-open browser
+        <span class="cov0" title="0">time.Sleep(500 * time.Millisecond) // Give server time to start
+        if err := openBrowser(cfg.URL()); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to open browser: %v", err)
+                log.Printf("Please open your browser and navigate to: %s", cfg.URL())
+        }</span> else<span class="cov0" title="0"> {
+                log.Printf("Browser opened at: %s", cfg.URL())
+        }</span>
+
+        // Wait for interrupt signal
+        <span class="cov0" title="0">sigChan := make(chan os.Signal, 1)
+        signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+        &lt;-sigChan
+        log.Println("\nShutting down gracefully...")
+
+        // Graceful shutdown
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        if err := srv.Shutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Server shutdown error: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Println("Server stopped")</span>
+}
+
+// openBrowser opens the default browser to the specified URL
+func openBrowser(url string) error <span class="cov0" title="0">{
+        var cmd *exec.Cmd
+
+        switch runtime.GOOS </span>{
+        case "darwin":<span class="cov0" title="0">
+                cmd = exec.Command("open", url)</span>
+        case "windows":<span class="cov0" title="0">
+                cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)</span>
+        default:<span class="cov0" title="0">
+                cmd = exec.Command("xdg-open", url)</span>
+        }
+
+        <span class="cov0" title="0">return cmd.Start()</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

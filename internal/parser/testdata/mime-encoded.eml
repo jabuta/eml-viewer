@@ -1,0 +1,12 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: =?UTF-8?Q?Invitaci=C3=B3n:_Reuni=C3=B3n_de_proyecto?=
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Message-ID: <mime123@example.com>
+Content-Type: text/plain; charset=utf-8
+
+This email has a MIME-encoded subject line with special characters.
+The subject should decode to: Invitación: Reunión de proyecto
+
+Best regards,
+Test Sender

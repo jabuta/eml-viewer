@@ -1,0 +1,12 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Windows-1252 Charset Test
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Message-ID: <windows1252@example.com>
+Content-Type: text/plain; charset=windows-1252
+
+This email uses the windows-1252 charset.
+Special characters: café, résumé, naïve.
+
+Best regards,
+Test Sender

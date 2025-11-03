@@ -179,6 +179,128 @@ The application stores its database and configuration in:
 - **Email Folder**: `./emails`
 - **Database**: `~/.eml-viewer/emails.db`
 
+## Testing
+
+The project includes comprehensive automated tests covering the most critical components.
+
+### Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests with coverage
+go test -coverprofile=coverage.out ./...
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+
+# Run specific package tests
+go test ./internal/parser/...
+go test ./internal/db/...
+
+# Run with race detection
+go test -race ./...
+```
+
+### Test Coverage
+
+Current test coverage (as of latest run):
+
+- **Parser**: 88.2% - Email parsing, MIME decoding, charset handling
+- **Database**: 82.4% - CRUD operations, FTS5 search, attachments
+- **Overall**: ~40% (focused on critical paths)
+
+### Test Structure
+
+```
+eml-viewer/
+├── internal/
+│   ├── parser/
+│   │   ├── eml_test.go              # 11 parser tests
+│   │   └── testdata/                # 6 test .eml files
+│   │
+│   └── db/
+│       ├── emails_test.go           # 9 database tests
+│       ├── search_test.go           # 9 search tests
+│       └── test_helpers.go          # Test utilities
+│
+└── tests/
+    └── integration/
+        ├── workflow_test.go         # 4 end-to-end tests
+        └── testdata/                # Integration test data
+```
+
+### What's Tested
+
+✅ **Parser Layer** (11 tests)
+- Simple email parsing
+- MIME-encoded subjects (RFC 2047)
+- Multiple charsets (UTF-8, windows-1252, iso-8859-1)
+- HTML and plain text emails
+- Attachment extraction
+- Missing headers handling
+- Date parsing variations
+
+✅ **Database Layer** (9 tests)
+- Insert/retrieve/list operations
+- Email existence checks
+- Attachment storage and retrieval
+- NULL date handling
+- FTS5 trigger behavior
+- Settings management
+
+✅ **Search Layer** (9 tests)
+- Single and multi-term search
+- Fuzzy matching with wildcards
+- Result highlighting (`<mark>` tags)
+- Empty query handling
+- Result limiting
+- Ranking by relevance
+- Combined filters (sender, attachments)
+
+✅ **Integration Tests** (4 tests)
+- Complete workflow: scan → parse → index → search → retrieve
+- Multiple email handling
+- Parser integration
+- Error recovery with corrupted files
+
+### Test Philosophy
+
+This project follows **pragmatic testing** principles:
+
+- **High coverage on critical paths**: Parser (88%) and database (82%) are thoroughly tested
+- **Integration tests** verify the complete workflow works end-to-end
+- **Fast execution**: All tests run in ~0.1 seconds
+- **In-memory database**: Tests use SQLite `:memory:` for speed
+- **No external dependencies**: Tests are fully self-contained
+
+### Writing New Tests
+
+When adding features, consider adding tests for:
+
+1. **Parser changes**: Add test .eml files in `internal/parser/testdata/`
+2. **Database operations**: Use test helpers in `internal/db/test_helpers.go`
+3. **Search functionality**: Add test cases in `search_test.go`
+
+Example test helper usage:
+
+```go
+func TestYourFeature(t *testing.T) {
+    db := setupTestDB(t)
+    defer cleanupTestDB(t, db)
+    
+    email := createTestEmail("Subject", "sender@test.com", "Body")
+    id, err := db.InsertEmail(email)
+    
+    require.NoError(t, err)
+    assert.Greater(t, id, int64(0))
+}
+```
+
 ## Troubleshooting
 
 ### Browser doesn't open automatically

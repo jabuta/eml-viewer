@@ -1,0 +1,25 @@
+From: john.doe@example.com
+To: jane.smith@example.com
+Subject: Integration Test Email
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Message-ID: <integration-test@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary789"
+
+--boundary789
+Content-Type: text/plain; charset=utf-8
+
+This is an integration test email.
+It will be used to test the complete workflow from scanning to retrieval.
+
+Best regards,
+John Doe
+
+--boundary789
+Content-Type: text/plain; name="readme.txt"
+Content-Disposition: attachment; filename="readme.txt"
+
+This is a test attachment file.
+It contains some sample text.
+
+--boundary789--

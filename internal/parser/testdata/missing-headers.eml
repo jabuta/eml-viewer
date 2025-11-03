@@ -1,0 +1,9 @@
+From: sender@example.com
+Subject: Missing Headers Test
+Content-Type: text/plain; charset=utf-8
+
+This email is missing some headers like Date and Message-ID.
+The parser should handle this gracefully.
+
+Best regards,
+Test Sender
