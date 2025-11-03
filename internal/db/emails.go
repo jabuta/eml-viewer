@@ -510,3 +510,62 @@ func (db *DB) GetUniqueRecipients(limit int) ([]string, error) {
 
 	return result, nil
 }
+
+// Stats holds database statistics
+type Stats struct {
+	TotalEmails     int
+	WithAttachments int
+	LastIndexed     time.Time
+}
+
+// GetStats returns current database statistics
+func (db *DB) GetStats() (*Stats, error) {
+	stats := &Stats{}
+
+	// Get total emails
+	err := db.QueryRow("SELECT COUNT(*) FROM emails").Scan(&stats.TotalEmails)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count emails: %w", err)
+	}
+
+	// Get count with attachments
+	err = db.QueryRow("SELECT COUNT(*) FROM emails WHERE has_attachments = 1").Scan(&stats.WithAttachments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count emails with attachments: %w", err)
+	}
+
+	// Get last indexed time
+	var lastIndexed sql.NullString
+	err = db.QueryRow("SELECT MAX(indexed_at) FROM emails").Scan(&lastIndexed)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get last indexed time: %w", err)
+	}
+
+	if lastIndexed.Valid {
+		// Try to parse the timestamp
+		formats := []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02 15:04:05.999999999 -0700 -0700",
+			"2006-01-02 15:04:05 -0700 -0700",
+			"2006-01-02 15:04:05.999999999 -0700",
+			"2006-01-02 15:04:05 -0700",
+			"2006-01-02 15:04:05.999999999",
+			"2006-01-02 15:04:05",
+			"2006-01-02T15:04:05Z",
+		}
+
+		var t time.Time
+		var parseErr error
+		for _, format := range formats {
+			t, parseErr = time.Parse(format, lastIndexed.String)
+			if parseErr == nil {
+				stats.LastIndexed = t
+				break
+			}
+		}
+		// If all formats fail, leave LastIndexed as zero time
+	}
+
+	return stats, nil
+}

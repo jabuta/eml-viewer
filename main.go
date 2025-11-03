@@ -84,6 +84,7 @@ func main() {
 	r.Get("/attachments/{id}/download", h.DownloadAttachment)
 	r.Post("/scan", h.Scan)
 	r.Get("/scan", h.ScanPage)
+	r.Get("/scan/progress", h.ScanProgressSSE)
 
 	// Static files from embedded assets
 	staticFS, err := fs.Sub(web.Assets, "static")
@@ -97,7 +98,7 @@ func main() {
 		Addr:         cfg.Address(),
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 5 * time.Minute, // Increased for SSE connections
 		IdleTimeout:  60 * time.Second,
 	}
 
