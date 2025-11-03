@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -265,6 +266,168 @@ This is a valid email.
 	count, err := testDB.CountEmails()
 	require.NoError(t, err)
 	assert.Equal(t, 1, count, "Database should contain only valid email")
+}
+
+// TestConcurrentIndexing tests that concurrent indexing works correctly
+func TestConcurrentIndexing(t *testing.T) {
+	// Set up temp directory with multiple test emails
+	tempDir, err := os.MkdirTemp("", "eml-viewer-concurrent-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create 20 test emails to process concurrently
+	numEmails := 20
+	for i := 1; i <= numEmails; i++ {
+		content := fmt.Sprintf(`From: sender%d@test.com
+To: recipient@test.com
+Subject: Test Email %d
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+This is test email number %d.
+`, i, i, i)
+
+		path := filepath.Join(tempDir, fmt.Sprintf("email%d.eml", i))
+		err := os.WriteFile(path, []byte(content), 0644)
+		require.NoError(t, err)
+	}
+
+	// Initialize database
+	testDB, err := db.Open(":memory:")
+	require.NoError(t, err)
+	defer testDB.Close()
+
+	// Index with concurrent workers
+	idx := indexer.NewIndexer(testDB, tempDir, false)
+	idx.WithConcurrency(4) // Use 4 workers
+
+	result, err := idx.IndexAll()
+	require.NoError(t, err, "Concurrent indexing should succeed")
+
+	assert.Equal(t, numEmails, result.TotalFound, "Should find all emails")
+	assert.Equal(t, numEmails, result.NewIndexed, "Should index all emails")
+	assert.Equal(t, 0, result.Failed, "Should have no failures")
+	assert.Equal(t, 0, result.Skipped, "Should skip no emails")
+
+	// Verify all emails are in database
+	count, err := testDB.CountEmails()
+	require.NoError(t, err)
+	assert.Equal(t, numEmails, count, "All emails should be in database")
+
+	// Verify no duplicates (common race condition issue)
+	emails, err := testDB.ListEmails(100, 0)
+	require.NoError(t, err)
+	assert.Len(t, emails, numEmails, "Should have exactly the right number of emails")
+
+	// Verify unique subjects
+	subjectSet := make(map[string]bool)
+	for _, email := range emails {
+		assert.False(t, subjectSet[email.Subject], "Should not have duplicate subjects")
+		subjectSet[email.Subject] = true
+	}
+}
+
+// TestConcurrentIndexingWithProgress tests progress reporting with concurrent indexing
+func TestConcurrentIndexingWithProgress(t *testing.T) {
+	// Set up temp directory
+	tempDir, err := os.MkdirTemp("", "eml-viewer-progress-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create 10 test emails
+	numEmails := 10
+	for i := 1; i <= numEmails; i++ {
+		content := fmt.Sprintf(`From: sender%d@test.com
+To: recipient@test.com
+Subject: Progress Test %d
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+Progress test email %d.
+`, i, i, i)
+
+		path := filepath.Join(tempDir, fmt.Sprintf("progress%d.eml", i))
+		err := os.WriteFile(path, []byte(content), 0644)
+		require.NoError(t, err)
+	}
+
+	// Initialize database
+	testDB, err := db.Open(":memory:")
+	require.NoError(t, err)
+	defer testDB.Close()
+
+	// Track progress
+	progressCalls := 0
+	var lastCurrent int
+
+	idx := indexer.NewIndexer(testDB, tempDir, false)
+	idx.WithConcurrency(2)
+
+	result, err := idx.IndexWithProgress(func(current, total int, filePath string) {
+		progressCalls++
+		lastCurrent = current
+		assert.LessOrEqual(t, current, total, "Current should not exceed total")
+		assert.NotEmpty(t, filePath, "File path should not be empty")
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, numEmails, result.NewIndexed, "Should index all emails")
+	assert.Equal(t, numEmails, progressCalls, "Should call progress callback for each file")
+	assert.Equal(t, numEmails, lastCurrent, "Last current should equal total")
+}
+
+// TestConcurrentIndexingRaceConditions tests for race conditions
+func TestConcurrentIndexingRaceConditions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	// Set up temp directory with many test emails
+	tempDir, err := os.MkdirTemp("", "eml-viewer-race-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create 50 test emails to increase chance of catching race conditions
+	numEmails := 50
+	for i := 1; i <= numEmails; i++ {
+		content := fmt.Sprintf(`From: sender%d@test.com
+To: recipient@test.com
+Subject: Race Test %d
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+Race condition test email %d.
+`, i, i, i)
+
+		path := filepath.Join(tempDir, fmt.Sprintf("race%d.eml", i))
+		err := os.WriteFile(path, []byte(content), 0644)
+		require.NoError(t, err)
+	}
+
+	// Initialize database
+	testDB, err := db.Open(":memory:")
+	require.NoError(t, err)
+	defer testDB.Close()
+
+	// Index with high concurrency
+	idx := indexer.NewIndexer(testDB, tempDir, false)
+	idx.WithConcurrency(8) // High concurrency to stress test
+
+	result, err := idx.IndexAll()
+	require.NoError(t, err, "High concurrency indexing should succeed")
+
+	assert.Equal(t, numEmails, result.NewIndexed, "Should index all emails")
+	assert.Equal(t, 0, result.Failed, "Should have no failures")
+
+	// Critical: Verify no duplicate insertions (race condition)
+	count, err := testDB.CountEmails()
+	require.NoError(t, err)
+	assert.Equal(t, numEmails, count, "Database count should match indexed count")
+
+	// Verify data integrity
+	emails, err := testDB.ListEmails(100, 0)
+	require.NoError(t, err)
+	assert.Len(t, emails, numEmails, "Should retrieve exact number of emails")
 }
 
 // copyFile is a helper to copy files for testing
