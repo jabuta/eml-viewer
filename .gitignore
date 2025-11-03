@@ -10,6 +10,7 @@ build/icons/
 
 # Email data
 emails/
+/db/
 
 # Database
 *.db

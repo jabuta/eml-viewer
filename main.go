@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -24,6 +25,12 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.Default()
+
+	// Ensure database directory exists
+	dbDir := filepath.Dir(cfg.DBPath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		log.Fatalf("Failed to create database directory: %v", err)
+	}
 
 	// Open database
 	database, err := db.Open(cfg.DBPath)

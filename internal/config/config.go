@@ -1,10 +1,5 @@
 package config
 
-import (
-	"os"
-	"path/filepath"
-)
-
 // Config holds application configuration
 type Config struct {
 	// Server settings
@@ -20,20 +15,11 @@ type Config struct {
 
 // Default returns default configuration
 func Default() *Config {
-	// Get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = "."
-	}
-
-	// Use ~/.eml-viewer for data directory
-	dataDir := filepath.Join(homeDir, ".eml-viewer")
-
 	return &Config{
 		Host:       "localhost",
 		Port:       "8080",
-		DBPath:     filepath.Join(dataDir, "emails.db"),
-		EmailsPath: "./emails", // Default to ./emails directory
+		DBPath:     "./db/emails.db", // Database in ./db folder
+		EmailsPath: "./emails",       // Emails in ./emails folder
 	}
 }
 

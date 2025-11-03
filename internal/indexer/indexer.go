@@ -28,7 +28,7 @@ func NewIndexer(database *db.DB, emailsPath string, verbose bool) *Indexer {
 		db:          database,
 		scanner:     scanner.NewScanner(emailsPath),
 		verbose:     verbose,
-		concurrency: runtime.NumCPU(), // Default to number of CPUs
+		concurrency: runtime.NumCPU() * 2, // 2x CPUs for optimal I/O parallelism
 	}
 }
 
