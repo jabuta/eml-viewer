@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +20,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+//go:embed web/templates/* web/templates/components/* web/static/css/* web/static/js/*
+var embeddedFiles embed.FS
 
 func main() {
 	// Load configuration
@@ -54,8 +59,11 @@ func main() {
 		}
 	}
 
-	// Initialize handlers
+	// Initialize handlers with embedded templates
 	h := handlers.New(database, cfg)
+	if err := h.LoadTemplates(embeddedFiles); err != nil {
+		log.Fatalf("Failed to load templates: %v", err)
+	}
 
 	// Set up router
 	r := chi.NewRouter()
@@ -67,16 +75,18 @@ func main() {
 
 	// Routes
 	r.Get("/", h.Index)
-	r.Get("/emails/{id}", h.ViewEmail)
+	r.Get("/email/{id}", h.ViewEmail)
 	r.Get("/search", h.Search)
 	r.Get("/attachments/{id}/download", h.DownloadAttachment)
 	r.Post("/scan", h.Scan)
+	r.Get("/scan", h.ScanPage)
 
-	// Static files (will be added later with embedded assets)
-	// For now, serve from filesystem
-	workDir, _ := os.Getwd()
-	filesDir := http.Dir(workDir + "/web/static")
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(filesDir)))
+	// Static files from embedded assets
+	staticFS, err := fs.Sub(embeddedFiles, "web/static")
+	if err != nil {
+		log.Fatalf("Failed to get static files: %v", err)
+	}
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	// Create server
 	srv := &http.Server{

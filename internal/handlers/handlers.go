@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"embed"
 	"html/template"
 
 	"github.com/felo/eml-viewer/internal/config"
@@ -19,6 +20,18 @@ func New(database *db.DB, cfg *config.Config) *Handlers {
 	return &Handlers{
 		db:  database,
 		cfg: cfg,
-		// templates will be loaded when we add template support
 	}
+}
+
+// LoadTemplates loads HTML templates from embedded filesystem
+func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
+	tmpl, err := template.ParseFS(embeddedFiles,
+		"web/templates/*.html",
+		"web/templates/components/*.html",
+	)
+	if err != nil {
+		return err
+	}
+	h.templates = tmpl
+	return nil
 }

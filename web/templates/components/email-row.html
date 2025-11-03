@@ -1,0 +1,63 @@
+{{define "email-row"}}
+<a
+    href="/email/{{.ID}}"
+    class="block bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all"
+>
+    <div class="flex items-start justify-between">
+        <div class="flex-1 min-w-0">
+            <!-- Subject -->
+            <h3 class="text-lg font-semibold text-gray-900 truncate mb-1">
+                {{if .Subject}} {{.Subject}} {{else}}
+                <span class="text-gray-400 italic">(No Subject)</span>
+                {{end}}
+            </h3>
+
+            <!-- From -->
+            <p class="text-sm text-gray-600 mb-2">
+                <span class="font-medium">
+                    {{if .SenderName}} {{.SenderName}} {{else}} {{.Sender}}
+                    {{end}}
+                </span>
+                {{if .SenderName}}
+                <span class="text-gray-400">&lt;{{.Sender}}&gt;</span>
+                {{end}}
+            </p>
+
+            <!-- Snippet -->
+            {{if .BodyText}}
+            <p class="text-sm text-gray-500 line-clamp-2">{{.BodyText}}</p>
+            {{end}}
+        </div>
+
+        <div class="ml-4 flex-shrink-0 text-right">
+            <!-- Date -->
+            <p class="text-sm text-gray-500 mb-2">
+                {{.GetDate.Format "Jan 2, 2006"}}
+            </p>
+            <p class="text-xs text-gray-400">{{.GetDate.Format "3:04 PM"}}</p>
+
+            <!-- Attachment indicator -->
+            {{if .HasAttachments}}
+            <div
+                class="mt-2 flex items-center justify-end text-xs text-gray-500"
+            >
+                <svg
+                    class="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                    />
+                </svg>
+                {{.AttachmentCount}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+</a>
+{{end}}

@@ -1,0 +1,113 @@
+{{define "base.html"}}
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{block "title" .}}EML Viewer{{end}}</title>
+
+        <!-- TailwindCSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="/static/css/styles.css" />
+
+        <style>
+            /* Custom scrollbar */
+            ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #f1f1f1;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 5px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #555;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-50 min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <a href="/" class="flex items-center space-x-2">
+                            <svg
+                                class="w-8 h-8 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                />
+                            </svg>
+                            <h1 class="text-2xl font-bold text-gray-900">
+                                EML Viewer
+                            </h1>
+                        </a>
+                        {{if .Stats}}
+                        <span class="text-sm text-gray-500 hidden sm:inline">
+                            {{.Stats.TotalEmails}} emails indexed
+                        </span>
+                        {{end}}
+                    </div>
+
+                    <nav class="flex items-center space-x-4">
+                        <a
+                            href="/"
+                            class="text-gray-600 hover:text-gray-900 font-medium"
+                            >Browse</a
+                        >
+                        <a
+                            href="/scan"
+                            class="text-gray-600 hover:text-gray-900 font-medium"
+                            >Scan</a
+                        >
+                        <button
+                            onclick="window.location.reload()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            Refresh
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {{block "content" .}}{{end}}
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div class="text-center text-sm text-gray-500">
+                    EML Viewer v1.0.0 | Built with Go + HTMX + SQLite
+                </div>
+            </div>
+        </footer>
+
+        <!-- Toast Notifications (for future use) -->
+        <div
+            id="toast-container"
+            class="fixed top-4 right-4 z-50 space-y-2"
+        ></div>
+
+        <!-- Custom JS -->
+        <script src="/static/js/app.js"></script>
+    </body>
+</html>
+{{end}}

@@ -1,0 +1,121 @@
+/* Custom styles for EML Viewer */
+
+/* HTMX indicator (hide by default) */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: flex;
+}
+
+/* Line clamp utility for text truncation */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Smooth transitions */
+* {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Focus states */
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+}
+
+/* Code blocks in email bodies */
+pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875em;
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+}
+
+/* Email body iframe */
+iframe {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+/* Search highlighting */
+mark {
+    background-color: #fef08a;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.125rem;
+    font-weight: 500;
+}
+
+/* Toast notifications */
+.toast {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    min-width: 300px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast-success {
+    background-color: #10b981;
+    color: white;
+}
+
+.toast-error {
+    background-color: #ef4444;
+    color: white;
+}
+
+.toast-info {
+    background-color: #3b82f6;
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Responsive table for email headers */
+@media (max-width: 640px) {
+    .flex {
+        flex-direction: column;
+    }
+}
+
+/* Print styles */
+@media print {
+    header,
+    footer,
+    #search-input,
+    .back-button {
+        display: none;
+    }
+}
