@@ -67,8 +67,13 @@ func main() {
 		}
 	}
 
+	// Create shutdown signal channel
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
 	// Initialize handlers with embedded templates
 	h := handlers.New(database, cfg)
+	h.SetShutdownChannel(sigChan)
 	if err := h.LoadTemplates(web.Assets); err != nil {
 		log.Fatalf("Failed to load templates: %v", err)
 	}
@@ -89,6 +94,7 @@ func main() {
 	r.Post("/scan", h.Scan)
 	r.Get("/scan", h.ScanPage)
 	r.Get("/scan/progress", h.ScanProgressSSE)
+	r.Post("/shutdown", h.Shutdown)
 
 	// Static files from embedded assets
 	staticFS, err := fs.Sub(web.Assets, "static")
@@ -124,9 +130,6 @@ func main() {
 	}
 
 	// Wait for interrupt signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
 	<-sigChan
 	log.Println("\nShutting down gracefully...")
 
