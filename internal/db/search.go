@@ -232,3 +232,75 @@ func truncateText(text string, maxLen int) string {
 	}
 	return text[:maxLen] + "..."
 }
+
+// CountFilteredEmails returns the total count of emails matching the filters
+func (db *DB) CountFilteredEmails(query, sender, recipient string, hasAttachments bool, dateFrom, dateTo string) (int, error) {
+	// Build WHERE clause
+	var conditions []string
+	var args []interface{}
+
+	// FTS5 search
+	if query != "" {
+		terms := strings.Fields(query)
+		fuzzyTerms := make([]string, len(terms))
+		for i, term := range terms {
+			// For terms with special characters (like @, .), quote them without wildcard
+			if strings.ContainsAny(term, "@.-") {
+				fuzzyTerms[i] = escapeFTS5(term)
+			} else {
+				// For regular terms, escape and add wildcard
+				escapedTerm := strings.ReplaceAll(term, `"`, `""`)
+				fuzzyTerms[i] = `"` + escapedTerm + `"` + "*"
+			}
+		}
+		fuzzyQuery := strings.Join(fuzzyTerms, " ")
+		conditions = append(conditions, "emails_fts MATCH ?")
+		args = append(args, fuzzyQuery)
+	}
+
+	// Sender filter
+	if sender != "" {
+		conditions = append(conditions, "e.sender LIKE ?")
+		args = append(args, "%"+sender+"%")
+	}
+
+	// Recipient filter
+	if recipient != "" {
+		conditions = append(conditions, "e.recipients LIKE ?")
+		args = append(args, "%"+recipient+"%")
+	}
+
+	// Attachments filter
+	if hasAttachments {
+		conditions = append(conditions, "e.has_attachments = 1")
+	}
+
+	// Date range filters
+	if dateFrom != "" {
+		conditions = append(conditions, "e.date >= ?")
+		args = append(args, dateFrom)
+	}
+	if dateTo != "" {
+		conditions = append(conditions, "e.date <= ?")
+		args = append(args, dateTo)
+	}
+
+	// Build SQL query
+	sqlQuery := `SELECT COUNT(*) FROM emails e`
+
+	if query != "" {
+		sqlQuery += ` JOIN emails_fts ON e.id = emails_fts.rowid`
+	}
+
+	if len(conditions) > 0 {
+		sqlQuery += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := db.QueryRow(sqlQuery, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count filtered emails: %w", err)
+	}
+
+	return count, nil
+}

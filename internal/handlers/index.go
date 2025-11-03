@@ -94,6 +94,9 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Calculate display count (cumulative)
+		displayCount := offset + len(emails)
+
 		// Replace the old Load More button with a new one (or remove if no more)
 		if hasMore {
 			loadMoreHTML := `<div class="flex justify-center mt-6" id="load-more-container" hx-swap-oob="true">
@@ -104,6 +107,13 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 			// Remove the Load More button if no more results
 			w.Write([]byte(`<div id="load-more-container" hx-swap-oob="true"></div>`))
 		}
+
+		// Update the email counter using out-of-band swap
+		counterHTML := `<div id="email-counter" class="mt-8 text-center text-sm text-gray-500" hx-swap-oob="true">
+			Showing ` + strconv.Itoa(displayCount) + ` of ` + strconv.Itoa(count) + ` emails
+		</div>`
+		w.Write([]byte(counterHTML))
+
 		return
 	}
 

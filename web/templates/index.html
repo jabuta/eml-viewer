@@ -145,7 +145,7 @@
 </div>
 
 {{if .Stats}}
-<div class="mt-8 text-center text-sm text-gray-500">
+<div id="email-counter" class="mt-8 text-center text-sm text-gray-500">
     Showing {{len .Emails}} of {{.Stats.TotalEmails}} emails
 </div>
 {{end}} {{template "footer" .}}
