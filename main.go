@@ -39,7 +39,11 @@ func main() {
 	}
 	defer database.Close()
 
+	// Set emails path for resolving relative .eml file paths
+	database.SetEmailsPath(cfg.EmailsPath)
+
 	log.Printf("Database opened at: %s", cfg.DBPath)
+	log.Printf("Emails path configured: %s", cfg.EmailsPath)
 
 	// Check if emails directory exists
 	if _, err := os.Stat(cfg.EmailsPath); os.IsNotExist(err) {

@@ -20,6 +20,9 @@ func SetupTestDB(t *testing.T) *DB {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
 
+	// Set a default test emails path for relative path resolution
+	db.SetEmailsPath("/test")
+
 	return db
 }
 
@@ -32,8 +35,14 @@ func CleanupTestDB(t *testing.T, db *DB) {
 	}
 }
 
-// CreateTestEmail creates a test email with default values
+// CreateTestEmail creates a test email with default values (metadata only)
 func CreateTestEmail(subject, sender, body string) *Email {
+	// Truncate body to 10KB for body_text_preview
+	bodyPreview := body
+	if len(bodyPreview) > 10240 {
+		bodyPreview = bodyPreview[:10240]
+	}
+
 	return &Email{
 		FilePath:        fmt.Sprintf("/test/%s.eml", subject),
 		MessageID:       fmt.Sprintf("<%s@test.com>", subject),
@@ -41,14 +50,10 @@ func CreateTestEmail(subject, sender, body string) *Email {
 		Sender:          sender,
 		SenderName:      "Test Sender",
 		Recipients:      "recipient@test.com",
-		CC:              "",
-		BCC:             "",
 		Date:            NullTime{Time: time.Now(), Valid: true},
-		BodyText:        body,
-		BodyHTML:        "",
+		BodyTextPreview: bodyPreview,
 		HasAttachments:  false,
 		AttachmentCount: 0,
-		RawHeaders:      fmt.Sprintf("From: %s\nSubject: %s\n", sender, subject),
 		FileSize:        int64(len(body)),
 	}
 }

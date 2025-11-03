@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/felo/eml-viewer/internal/parser"
 )
 
 // NullTime is a custom type that handles both string and time.Time from SQLite
@@ -68,7 +70,8 @@ func (nt NullTime) Value() (driver.Value, error) {
 	return nt.Time, nil
 }
 
-// Email represents an email record in the database
+// Email represents an email record in the database (metadata only)
+// Full content (body_html, raw_headers, cc, bcc) is parsed from .eml file on-demand
 type Email struct {
 	ID              int64
 	FilePath        string
@@ -77,14 +80,10 @@ type Email struct {
 	Sender          string
 	SenderName      string
 	Recipients      string
-	CC              string
-	BCC             string
 	Date            NullTime
-	BodyText        string
-	BodyHTML        string
+	BodyTextPreview string // First 10KB for FTS5 search only
 	HasAttachments  bool
 	AttachmentCount int
-	RawHeaders      string
 	FileSize        int64
 	IndexedAt       NullTime
 	UpdatedAt       NullTime
@@ -98,28 +97,45 @@ func (e *Email) GetDate() time.Time {
 	return time.Time{}
 }
 
-// Attachment represents an email attachment
+// EmailWithContent represents a full email with all content parsed from .eml file
+type EmailWithContent struct {
+	*Email                            // Embedded metadata from database
+	BodyText    string                // Full body text (parsed from .eml)
+	BodyHTML    string                // Full body HTML (parsed from .eml)
+	CC          []string              // CC recipients (parsed from .eml)
+	BCC         []string              // BCC recipients (parsed from .eml)
+	RawHeaders  string                // Raw headers (parsed from .eml)
+	Attachments []*AttachmentWithData // Attachments with data
+}
+
+// AttachmentWithData represents an attachment with its binary data
+type AttachmentWithData struct {
+	*Attachment        // Embedded metadata from database
+	Data        []byte // Actual attachment data (parsed from .eml)
+}
+
+// Attachment represents an email attachment (metadata only)
+// Actual attachment data is extracted from .eml file on-demand
 type Attachment struct {
 	ID          int64
 	EmailID     int64
 	Filename    string
 	ContentType string
 	Size        int64
-	Data        []byte
 }
 
-// InsertEmail inserts a new email into the database
+// InsertEmail inserts a new email into the database (metadata only)
 func (db *DB) InsertEmail(email *Email) (int64, error) {
 	result, err := db.Exec(`
 		INSERT INTO emails (
 			file_path, message_id, subject, sender, sender_name,
-			recipients, cc, bcc, date, body_text, body_html,
-			has_attachments, attachment_count, raw_headers, file_size
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			recipients, date, body_text_preview,
+			has_attachments, attachment_count, file_size
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
-		email.Recipients, email.CC, email.BCC, email.Date, email.BodyText, email.BodyHTML,
-		email.HasAttachments, email.AttachmentCount, email.RawHeaders, email.FileSize,
+		email.Recipients, email.Date, email.BodyTextPreview,
+		email.HasAttachments, email.AttachmentCount, email.FileSize,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert email: %w", err)
@@ -138,19 +154,19 @@ func (db *DB) EmailExists(filePath string) (bool, error) {
 	return exists, nil
 }
 
-// GetEmailByID retrieves an email by its ID
+// GetEmailByID retrieves an email by its ID (metadata only)
 func (db *DB) GetEmailByID(id int64) (*Email, error) {
 	email := &Email{}
 	err := db.QueryRow(`
 		SELECT id, file_path, message_id, subject, sender, sender_name,
-		       recipients, cc, bcc, date, body_text, body_html,
-		       has_attachments, attachment_count, raw_headers, file_size,
+		       recipients, date, body_text_preview,
+		       has_attachments, attachment_count, file_size,
 		       indexed_at, updated_at
 		FROM emails WHERE id = ?
 	`, id).Scan(
 		&email.ID, &email.FilePath, &email.MessageID, &email.Subject, &email.Sender, &email.SenderName,
-		&email.Recipients, &email.CC, &email.BCC, &email.Date, &email.BodyText, &email.BodyHTML,
-		&email.HasAttachments, &email.AttachmentCount, &email.RawHeaders, &email.FileSize,
+		&email.Recipients, &email.Date, &email.BodyTextPreview,
+		&email.HasAttachments, &email.AttachmentCount, &email.FileSize,
 		&email.IndexedAt, &email.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -162,12 +178,12 @@ func (db *DB) GetEmailByID(id int64) (*Email, error) {
 	return email, nil
 }
 
-// ListEmails retrieves the most recent emails with pagination
+// ListEmails retrieves the most recent emails with pagination (metadata only)
 func (db *DB) ListEmails(limit, offset int) ([]*Email, error) {
 	rows, err := db.Query(`
 		SELECT id, file_path, message_id, subject, sender, sender_name,
-		       recipients, cc, bcc, date, body_text, body_html,
-		       has_attachments, attachment_count, raw_headers, file_size,
+		       recipients, date, body_text_preview,
+		       has_attachments, attachment_count, file_size,
 		       indexed_at, updated_at
 		FROM emails
 		ORDER BY date DESC
@@ -183,8 +199,8 @@ func (db *DB) ListEmails(limit, offset int) ([]*Email, error) {
 		email := &Email{}
 		err := rows.Scan(
 			&email.ID, &email.FilePath, &email.MessageID, &email.Subject, &email.Sender, &email.SenderName,
-			&email.Recipients, &email.CC, &email.BCC, &email.Date, &email.BodyText, &email.BodyHTML,
-			&email.HasAttachments, &email.AttachmentCount, &email.RawHeaders, &email.FileSize,
+			&email.Recipients, &email.Date, &email.BodyTextPreview,
+			&email.HasAttachments, &email.AttachmentCount, &email.FileSize,
 			&email.IndexedAt, &email.UpdatedAt,
 		)
 		if err != nil {
@@ -210,12 +226,12 @@ func (db *DB) CountEmails() (int, error) {
 	return count, nil
 }
 
-// InsertAttachment inserts an attachment into the database
+// InsertAttachment inserts an attachment into the database (metadata only)
 func (db *DB) InsertAttachment(att *Attachment) (int64, error) {
 	result, err := db.Exec(`
-		INSERT INTO attachments (email_id, filename, content_type, size, data)
-		VALUES (?, ?, ?, ?, ?)
-	`, att.EmailID, att.Filename, att.ContentType, att.Size, att.Data)
+		INSERT INTO attachments (email_id, filename, content_type, size)
+		VALUES (?, ?, ?, ?)
+	`, att.EmailID, att.Filename, att.ContentType, att.Size)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert attachment: %w", err)
 	}
@@ -223,10 +239,10 @@ func (db *DB) InsertAttachment(att *Attachment) (int64, error) {
 	return result.LastInsertId()
 }
 
-// GetAttachmentsByEmailID retrieves all attachments for an email
+// GetAttachmentsByEmailID retrieves all attachments for an email (metadata only)
 func (db *DB) GetAttachmentsByEmailID(emailID int64) ([]*Attachment, error) {
 	rows, err := db.Query(`
-		SELECT id, email_id, filename, content_type, size, data
+		SELECT id, email_id, filename, content_type, size
 		FROM attachments WHERE email_id = ?
 	`, emailID)
 	if err != nil {
@@ -237,7 +253,7 @@ func (db *DB) GetAttachmentsByEmailID(emailID int64) ([]*Attachment, error) {
 	var attachments []*Attachment
 	for rows.Next() {
 		att := &Attachment{}
-		err := rows.Scan(&att.ID, &att.EmailID, &att.Filename, &att.ContentType, &att.Size, &att.Data)
+		err := rows.Scan(&att.ID, &att.EmailID, &att.Filename, &att.ContentType, &att.Size)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan attachment: %w", err)
 		}
@@ -251,13 +267,13 @@ func (db *DB) GetAttachmentsByEmailID(emailID int64) ([]*Attachment, error) {
 	return attachments, nil
 }
 
-// GetAttachmentByID retrieves a single attachment by ID
+// GetAttachmentByID retrieves a single attachment by ID (metadata only)
 func (db *DB) GetAttachmentByID(id int64) (*Attachment, error) {
 	att := &Attachment{}
 	err := db.QueryRow(`
-		SELECT id, email_id, filename, content_type, size, data
+		SELECT id, email_id, filename, content_type, size
 		FROM attachments WHERE id = ?
-	`, id).Scan(&att.ID, &att.EmailID, &att.Filename, &att.ContentType, &att.Size, &att.Data)
+	`, id).Scan(&att.ID, &att.EmailID, &att.Filename, &att.ContentType, &att.Size)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -283,9 +299,9 @@ func (db *DB) InsertEmailsBatch(emails []*Email) ([]int64, error) {
 	stmt, err := tx.Prepare(`
 		INSERT INTO emails (
 			file_path, message_id, subject, sender, sender_name,
-			recipients, cc, bcc, date, body_text, body_html,
-			has_attachments, attachment_count, raw_headers, file_size
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			recipients, date, body_text_preview,
+			has_attachments, attachment_count, file_size
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare statement: %w", err)
@@ -296,8 +312,8 @@ func (db *DB) InsertEmailsBatch(emails []*Email) ([]int64, error) {
 	for _, email := range emails {
 		result, err := stmt.Exec(
 			email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
-			email.Recipients, email.CC, email.BCC, email.Date, email.BodyText, email.BodyHTML,
-			email.HasAttachments, email.AttachmentCount, email.RawHeaders, email.FileSize,
+			email.Recipients, email.Date, email.BodyTextPreview,
+			email.HasAttachments, email.AttachmentCount, email.FileSize,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert email %s: %w", email.FilePath, err)
@@ -330,8 +346,8 @@ func (db *DB) InsertAttachmentsBatch(attachments []*Attachment) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO attachments (email_id, filename, content_type, size, data)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO attachments (email_id, filename, content_type, size)
+		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
@@ -339,7 +355,7 @@ func (db *DB) InsertAttachmentsBatch(attachments []*Attachment) error {
 	defer stmt.Close()
 
 	for _, att := range attachments {
-		_, err := stmt.Exec(att.EmailID, att.Filename, att.ContentType, att.Size, att.Data)
+		_, err := stmt.Exec(att.EmailID, att.Filename, att.ContentType, att.Size)
 		if err != nil {
 			return fmt.Errorf("failed to insert attachment %s: %w", att.Filename, err)
 		}
@@ -568,4 +584,149 @@ func (db *DB) GetStats() (*Stats, error) {
 	}
 
 	return stats, nil
+}
+
+// GetEmailWithFullContent retrieves an email and parses full content from .eml file
+// This is used when viewing an email to get body_html, raw_headers, cc, bcc, etc.
+func (db *DB) GetEmailWithFullContent(id int64) (*EmailWithContent, error) {
+	// First get metadata from database
+	email, err := db.GetEmailByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if email == nil {
+		return nil, nil
+	}
+
+	// Resolve relative path to absolute path
+	absolutePath := db.ResolveEmailPath(email.FilePath)
+
+	// Parse full content from .eml file
+	parsed, err := parser.ParseEMLFile(absolutePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse .eml file %s: %w", absolutePath, err)
+	}
+
+	// Get attachment metadata from database
+	attachmentMeta, err := db.GetAttachmentsByEmailID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attachments: %w", err)
+	}
+
+	// Match parsed attachments with database metadata
+	attachmentsWithData := make([]*AttachmentWithData, 0, len(attachmentMeta))
+	for i, meta := range attachmentMeta {
+		// Find matching parsed attachment by index
+		var data []byte
+		if i < len(parsed.Attachments) {
+			data = parsed.Attachments[i].Data
+		}
+
+		attachmentsWithData = append(attachmentsWithData, &AttachmentWithData{
+			Attachment: meta,
+			Data:       data,
+		})
+	}
+
+	return &EmailWithContent{
+		Email:       email,
+		BodyText:    parsed.BodyText,
+		BodyHTML:    parsed.BodyHTML,
+		CC:          parsed.CC,
+		BCC:         parsed.BCC,
+		RawHeaders:  parsed.RawHeaders,
+		Attachments: attachmentsWithData,
+	}, nil
+}
+
+// GetAttachmentData retrieves attachment data by parsing the .eml file
+// Returns the attachment data for the given attachment ID
+func (db *DB) GetAttachmentData(attachmentID int64) ([]byte, error) {
+	// Get attachment metadata
+	att, err := db.GetAttachmentByID(attachmentID)
+	if err != nil {
+		return nil, err
+	}
+	if att == nil {
+		return nil, fmt.Errorf("attachment not found")
+	}
+
+	// Get email to find the .eml file path
+	email, err := db.GetEmailByID(att.EmailID)
+	if err != nil {
+		return nil, err
+	}
+	if email == nil {
+		return nil, fmt.Errorf("email not found for attachment")
+	}
+
+	// Resolve relative path to absolute path
+	absolutePath := db.ResolveEmailPath(email.FilePath)
+
+	// Parse the .eml file
+	parsed, err := parser.ParseEMLFile(absolutePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse .eml file %s: %w", absolutePath, err)
+	}
+
+	// Find the matching attachment by filename
+	for _, parsedAtt := range parsed.Attachments {
+		if parsedAtt.Filename == att.Filename {
+			return parsedAtt.Data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("attachment %s not found in .eml file", att.Filename)
+}
+
+// DeleteEmail deletes an email and its attachments from the database
+// The .eml file is NOT deleted from disk
+func (db *DB) DeleteEmail(id int64) error {
+	result, err := db.Exec("DELETE FROM emails WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete email: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("email not found")
+	}
+
+	return nil
+}
+
+// DeleteEmailsBatch deletes multiple emails in a single transaction
+func (db *DB) DeleteEmailsBatch(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("DELETE FROM emails WHERE id = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, id := range ids {
+		_, err := stmt.Exec(id)
+		if err != nil {
+			return fmt.Errorf("failed to delete email %d: %w", id, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

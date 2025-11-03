@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -29,6 +31,95 @@ func setupTestHandlers(t *testing.T) (*Handlers, *db.DB) {
 	require.NoError(t, err, "Failed to load templates for testing")
 
 	return h, database
+}
+
+// setupTestHandlersWithTempDir creates handlers with a temp directory for .eml files
+func setupTestHandlersWithTempDir(t *testing.T) (*Handlers, *db.DB, string) {
+	t.Helper()
+
+	// Create temp directory for .eml files
+	tempDir, err := os.MkdirTemp("", "handler-test-*")
+	require.NoError(t, err)
+
+	database := db.SetupTestDB(t)
+	database.SetEmailsPath(tempDir) // Configure for relative path resolution
+
+	cfg := config.Default()
+	cfg.EmailsPath = tempDir
+	h := New(database, cfg)
+
+	// Load templates from embedded files
+	err = h.LoadTemplates(web.Assets)
+	require.NoError(t, err, "Failed to load templates for testing")
+
+	return h, database, tempDir
+}
+
+// createTestEMLFile creates a test .eml file in the given directory
+func createTestEMLFile(t *testing.T, dir, filename, from, to, subject, body string) string {
+	t.Helper()
+
+	content := fmt.Sprintf(`From: %s
+To: %s
+Subject: %s
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+%s
+`, from, to, subject, body)
+
+	path := filepath.Join(dir, filename)
+	err := os.WriteFile(path, []byte(content), 0644)
+	require.NoError(t, err)
+
+	return filename // Return relative path
+}
+
+// createTestEMLFileWithAttachments creates a test .eml file with attachments
+func createTestEMLFileWithAttachments(t *testing.T, dir, filename, from, to, subject, body string) string {
+	t.Helper()
+
+	// Create a simple multipart email with attachments
+	content := `From: ` + from + `
+To: ` + to + `
+Subject: ` + subject + `
+Date: Mon, 1 Jan 2024 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary123"
+
+--boundary123
+Content-Type: text/plain; charset=utf-8
+
+` + body + `
+
+--boundary123
+Content-Type: application/pdf; name="document.pdf"
+Content-Disposition: attachment; filename="document.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRv
+YmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PgplbmRvYmoKMyAw
+IG9iago8PC9UeXBlL1BhZ2UvTWVkaWFCb3hbMCAwIDMgM10+PgplbmRvYmoKeHJlZgowIDQKMDAw
+MDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNTMgMDAwMDAgbiAK
+MDAwMDAwMDEwMiAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4
+cmVmCjE0OQolRU9GCg==
+
+--boundary123
+Content-Type: image/png; name="image.png"
+Content-Disposition: attachment; filename="image.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9
+awAAAABJRU5ErkJggg==
+
+--boundary123--
+`
+
+	path := filepath.Join(dir, filename)
+	err := os.WriteFile(path, []byte(content), 0644)
+	require.NoError(t, err)
+
+	return filename // Return relative path
 }
 
 // Test that templates load without errors
@@ -92,14 +183,18 @@ func TestEmailTemplateRendersWithData(t *testing.T) {
 	now := time.Now()
 	data := map[string]interface{}{
 		"PageTitle": "Test Email - EML Viewer",
-		"Email": &db.Email{
-			ID:         1,
-			Subject:    "Test Subject",
-			Sender:     "sender@test.com",
-			SenderName: "Test Sender",
-			Recipients: "recipient@test.com",
-			BodyText:   "Test email body",
-			Date:       db.NewNullTime(now),
+		"Email": &db.EmailWithContent{
+			Email: &db.Email{
+				ID:              1,
+				Subject:         "Test Subject",
+				Sender:          "sender@test.com",
+				SenderName:      "Test Sender",
+				Recipients:      "recipient@test.com",
+				BodyTextPreview: "Test email body",
+				Date:            db.NewNullTime(now),
+			},
+			BodyText: "Test email body",
+			BodyHTML: "<p>Test email body</p>",
 		},
 		"Attachments": []db.Attachment{},
 	}
@@ -170,12 +265,18 @@ func TestIndexHandlerWithEmails(t *testing.T) {
 
 // Test Email detail handler
 func TestEmailDetailHandler(t *testing.T) {
-	h, database := setupTestHandlers(t)
+	h, database, tempDir := setupTestHandlersWithTempDir(t)
 	defer db.CleanupTestDB(t, database)
+	defer os.RemoveAll(tempDir)
 
-	// Insert test email
+	// Create actual .eml file
+	filename := createTestEMLFile(t, tempDir, "test.eml",
+		"test@example.com", "recipient@example.com",
+		"Test Email Subject", "This is the test email body")
+
+	// Insert test email with reference to the .eml file
 	email := db.CreateTestEmail("Test Email Subject", "test@example.com", "This is the test email body")
-	email.CC = "cc@example.com"
+	email.FilePath = filename // Use relative path
 	id, err := database.InsertEmail(email)
 	require.NoError(t, err)
 
@@ -200,39 +301,44 @@ func TestEmailDetailHandler(t *testing.T) {
 	assert.Contains(t, body, "This is the test email body")
 	assert.Contains(t, body, "From:")
 	assert.Contains(t, body, "To:")
-	assert.Contains(t, body, "CC:")
-	assert.Contains(t, body, "cc@example.com")
 	assert.Greater(t, len(body), 3000, "Response should contain substantial HTML")
 }
 
 // Test Email detail handler with attachments
 func TestEmailDetailHandlerWithAttachments(t *testing.T) {
-	h, database := setupTestHandlers(t)
+	h, database, tempDir := setupTestHandlersWithTempDir(t)
 	defer db.CleanupTestDB(t, database)
+	defer os.RemoveAll(tempDir)
 
-	// Insert email with attachment flag
-	email := db.CreateTestEmail("Email With Attachments", "sender@test.com", "Body")
+	// Create actual .eml file with attachments
+	filename := createTestEMLFileWithAttachments(t, tempDir, "with-attachments.eml",
+		"sender@test.com", "recipient@test.com",
+		"Email With Attachments", "This email has attachments")
+
+	// Insert email with attachment metadata
+	email := db.CreateTestEmail("Email With Attachments", "sender@test.com", "This email has attachments")
+	email.FilePath = filename
 	email.HasAttachments = true
 	email.AttachmentCount = 2
 	id, err := database.InsertEmail(email)
 	require.NoError(t, err)
 
-	// Insert attachments
-	att1 := db.Attachment{
+	// Insert attachment metadata (data will be parsed from .eml)
+	att1 := &db.Attachment{
 		EmailID:     id,
 		Filename:    "document.pdf",
 		ContentType: "application/pdf",
-		Size:        1024,
+		Size:        149, // Actual size of the base64 decoded data
 	}
-	att2 := db.Attachment{
+	att2 := &db.Attachment{
 		EmailID:     id,
 		Filename:    "image.png",
 		ContentType: "image/png",
-		Size:        2048,
+		Size:        68,
 	}
-	_, err = database.InsertAttachment(&att1)
+	_, err = database.InsertAttachment(att1)
 	require.NoError(t, err)
-	_, err = database.InsertAttachment(&att2)
+	_, err = database.InsertAttachment(att2)
 	require.NoError(t, err)
 
 	// Create request

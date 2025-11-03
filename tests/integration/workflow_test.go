@@ -37,6 +37,9 @@ func TestEndToEndWorkflow(t *testing.T) {
 	require.NoError(t, err, "Should open test database")
 	defer testDB.Close()
 
+	// Set emails path for resolving relative .eml file paths
+	testDB.SetEmailsPath(tempDir)
+
 	// Verify database schema is initialized
 	count, err := testDB.CountEmails()
 	require.NoError(t, err, "Should query empty database")
@@ -71,7 +74,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	email := emails[0]
 	assert.Equal(t, "Integration Test Email", email.Subject)
 	assert.Equal(t, "john.doe@example.com", email.Sender)
-	assert.Contains(t, email.BodyText, "integration test email")
+	assert.Contains(t, email.BodyTextPreview, "integration test email")
 
 	// Step 7: Test search functionality
 	searchResults, err := testDB.SearchEmails("integration", 10)
@@ -100,7 +103,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	att := attachments[0]
 	assert.Equal(t, "readme.txt", att.Filename)
 	assert.Greater(t, att.Size, int64(0), "Attachment should have size")
-	assert.NotEmpty(t, att.Data, "Attachment should have data")
+	// Note: Attachment data is no longer stored in DB, it's parsed from .eml on-demand
 
 	// Step 10: Test re-indexing (should skip existing emails)
 	result2, err := idx.IndexAll()
@@ -172,6 +175,9 @@ This is the third test email.
 	testDB, err := db.Open(":memory:")
 	require.NoError(t, err)
 	defer testDB.Close()
+
+	// Set emails path for resolving relative .eml file paths
+	testDB.SetEmailsPath(tempDir)
 
 	// Index all emails
 	idx := indexer.NewIndexer(testDB, tempDir, false)

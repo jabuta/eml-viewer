@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -206,10 +207,13 @@ func (idx *Indexer) parseWorker(wg *sync.WaitGroup, fileChan <-chan string, resu
 	defer wg.Done()
 
 	for filePath := range fileChan {
+		// Resolve relative path to absolute path (scanner returns relative paths)
+		absolutePath := filepath.Join(idx.scanner.GetRootPath(), filePath)
+
 		// Parse the email
-		parsed, err := parser.ParseEMLFile(filePath)
+		parsed, err := parser.ParseEMLFile(absolutePath)
 		if err != nil {
-			log.Printf("Error parsing %s: %v\n", filePath, err)
+			log.Printf("Error parsing %s: %v\n", absolutePath, err)
 			resultChan <- indexResult{
 				filePath: filePath,
 				status:   statusFailed,
@@ -218,9 +222,9 @@ func (idx *Indexer) parseWorker(wg *sync.WaitGroup, fileChan <-chan string, resu
 		}
 
 		// Get file size
-		fileInfo, err := os.Stat(filePath)
+		fileInfo, err := os.Stat(absolutePath)
 		if err != nil {
-			log.Printf("Error getting file info for %s: %v\n", filePath, err)
+			log.Printf("Error getting file info for %s: %v\n", absolutePath, err)
 			resultChan <- indexResult{
 				filePath: filePath,
 				status:   statusFailed,
@@ -228,7 +232,12 @@ func (idx *Indexer) parseWorker(wg *sync.WaitGroup, fileChan <-chan string, resu
 			continue
 		}
 
-		// Create email record
+		// Create email record (metadata only, truncate body text to 10KB for FTS5)
+		bodyTextPreview := parsed.BodyText
+		if len(bodyTextPreview) > 10240 {
+			bodyTextPreview = bodyTextPreview[:10240]
+		}
+
 		email := &db.Email{
 			FilePath:        filePath,
 			MessageID:       parsed.MessageID,
@@ -236,14 +245,10 @@ func (idx *Indexer) parseWorker(wg *sync.WaitGroup, fileChan <-chan string, resu
 			Sender:          parsed.Sender,
 			SenderName:      parsed.SenderName,
 			Recipients:      strings.Join(parsed.Recipients, ", "),
-			CC:              strings.Join(parsed.CC, ", "),
-			BCC:             strings.Join(parsed.BCC, ", "),
 			Date:            db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
-			BodyText:        parsed.BodyText,
-			BodyHTML:        parsed.BodyHTML,
+			BodyTextPreview: bodyTextPreview,
 			HasAttachments:  len(parsed.Attachments) > 0,
 			AttachmentCount: len(parsed.Attachments),
-			RawHeaders:      parsed.RawHeaders,
 			FileSize:        fileInfo.Size(),
 		}
 
@@ -335,7 +340,7 @@ func (idx *Indexer) writeBatch(batch []*parsedEmail) batchWriteResult {
 
 	result.indexed = len(emailIDs)
 
-	// Collect all attachments for batch insert
+	// Collect all attachments for batch insert (metadata only, no BLOB data)
 	var allAttachments []*db.Attachment
 	for i, p := range batch {
 		if len(p.attachments) > 0 {
@@ -346,7 +351,6 @@ func (idx *Indexer) writeBatch(batch []*parsedEmail) batchWriteResult {
 					Filename:    att.Filename,
 					ContentType: att.ContentType,
 					Size:        att.Size,
-					Data:        att.Data,
 				})
 			}
 		}
@@ -403,25 +407,33 @@ func (idx *Indexer) indexAllSequential() (*IndexResult, error) {
 			continue
 		}
 
+		// Resolve relative path to absolute path (scanner returns relative paths)
+		absolutePath := filepath.Join(idx.scanner.GetRootPath(), filePath)
+
 		// Parse the email
-		parsed, err := parser.ParseEMLFile(filePath)
+		parsed, err := parser.ParseEMLFile(absolutePath)
 		if err != nil {
-			log.Printf("Error parsing %s: %v\n", filePath, err)
+			log.Printf("Error parsing %s: %v\n", absolutePath, err)
 			result.Failed++
 			result.FailedFiles = append(result.FailedFiles, filePath)
 			continue
 		}
 
 		// Get file size
-		fileInfo, err := os.Stat(filePath)
+		fileInfo, err := os.Stat(absolutePath)
 		if err != nil {
-			log.Printf("Error getting file info for %s: %v\n", filePath, err)
+			log.Printf("Error getting file info for %s: %v\n", absolutePath, err)
 			result.Failed++
 			result.FailedFiles = append(result.FailedFiles, filePath)
 			continue
 		}
 
-		// Create email record
+		// Create email record (metadata only, truncate body text to 10KB for FTS5)
+		bodyTextPreview := parsed.BodyText
+		if len(bodyTextPreview) > 10240 {
+			bodyTextPreview = bodyTextPreview[:10240]
+		}
+
 		email := &db.Email{
 			FilePath:        filePath,
 			MessageID:       parsed.MessageID,
@@ -429,14 +441,10 @@ func (idx *Indexer) indexAllSequential() (*IndexResult, error) {
 			Sender:          parsed.Sender,
 			SenderName:      parsed.SenderName,
 			Recipients:      strings.Join(parsed.Recipients, ", "),
-			CC:              strings.Join(parsed.CC, ", "),
-			BCC:             strings.Join(parsed.BCC, ", "),
 			Date:            db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
-			BodyText:        parsed.BodyText,
-			BodyHTML:        parsed.BodyHTML,
+			BodyTextPreview: bodyTextPreview,
 			HasAttachments:  len(parsed.Attachments) > 0,
 			AttachmentCount: len(parsed.Attachments),
-			RawHeaders:      parsed.RawHeaders,
 			FileSize:        fileInfo.Size(),
 		}
 
@@ -449,14 +457,13 @@ func (idx *Indexer) indexAllSequential() (*IndexResult, error) {
 			continue
 		}
 
-		// Insert attachments
+		// Insert attachments (metadata only, no BLOB data)
 		for _, att := range parsed.Attachments {
 			attachment := &db.Attachment{
 				EmailID:     emailID,
 				Filename:    att.Filename,
 				ContentType: att.ContentType,
 				Size:        att.Size,
-				Data:        att.Data,
 			}
 
 			_, err := idx.db.InsertAttachment(attachment)

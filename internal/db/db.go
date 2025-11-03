@@ -11,6 +11,7 @@ import (
 
 type DB struct {
 	*sql.DB
+	emailsPath string // Root path for resolving relative .eml file paths
 }
 
 // Open opens a connection to the SQLite database and initializes the schema
@@ -33,7 +34,10 @@ func Open(dbPath string) (*DB, error) {
 	sqlDB.SetMaxOpenConns(1) // SQLite works best with single connection
 	sqlDB.SetMaxIdleConns(1)
 
-	db := &DB{sqlDB}
+	db := &DB{
+		DB: sqlDB,
+		// emailsPath will be set via SetEmailsPath after opening
+	}
 
 	// Initialize schema
 	if err := db.initSchema(); err != nil {
@@ -42,6 +46,27 @@ func Open(dbPath string) (*DB, error) {
 	}
 
 	return db, nil
+}
+
+// SetEmailsPath sets the root path for resolving relative .eml file paths
+// This must be called after opening the database for GetEmailWithFullContent to work
+func (db *DB) SetEmailsPath(path string) {
+	db.emailsPath = path
+}
+
+// GetEmailsPath returns the configured emails root path
+func (db *DB) GetEmailsPath() string {
+	return db.emailsPath
+}
+
+// ResolveEmailPath converts a relative .eml file path to an absolute path
+func (db *DB) ResolveEmailPath(relativePath string) string {
+	if filepath.IsAbs(relativePath) {
+		// Already absolute (legacy data)
+		return relativePath
+	}
+	// Resolve relative to configured emails path
+	return filepath.Join(db.emailsPath, relativePath)
 }
 
 // initSchema creates all tables, indexes, and triggers
@@ -81,5 +106,68 @@ func (db *DB) SetSetting(key, value string) error {
 	if err != nil {
 		return fmt.Errorf("failed to set setting: %w", err)
 	}
+	return nil
+}
+
+// Vacuum reclaims unused space in the database
+// This should be run after deleting emails or running migrations
+func (db *DB) Vacuum() error {
+	_, err := db.Exec("VACUUM")
+	if err != nil {
+		return fmt.Errorf("failed to vacuum database: %w", err)
+	}
+	return nil
+}
+
+// Analyze updates database statistics for better query planning
+func (db *DB) Analyze() error {
+	_, err := db.Exec("ANALYZE")
+	if err != nil {
+		return fmt.Errorf("failed to analyze database: %w", err)
+	}
+	return nil
+}
+
+// GetDatabaseSize returns the database file size in bytes
+func (db *DB) GetDatabaseSize() (int64, error) {
+	var pageCount, pageSize int64
+	err := db.QueryRow("PRAGMA page_count").Scan(&pageCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get page count: %w", err)
+	}
+
+	err = db.QueryRow("PRAGMA page_size").Scan(&pageSize)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get page size: %w", err)
+	}
+
+	return pageCount * pageSize, nil
+}
+
+// MigrateToOptimizedSchema migrates an existing database to the optimized schema
+// This removes duplicate data (body_html, raw_headers, cc, bcc, attachment BLOBs)
+func (db *DB) MigrateToOptimizedSchema() error {
+	// Check if migration is needed by checking if old columns exist
+	var hasBodyHTML bool
+	err := db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('emails')
+		WHERE name = 'body_html'
+	`).Scan(&hasBodyHTML)
+	if err != nil {
+		return fmt.Errorf("failed to check schema: %w", err)
+	}
+
+	if !hasBodyHTML {
+		// Already migrated
+		return nil
+	}
+
+	// Run migration
+	_, err = db.Exec(migrationSchema)
+	if err != nil {
+		return fmt.Errorf("failed to run migration: %w", err)
+	}
+
 	return nil
 }

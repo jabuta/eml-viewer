@@ -27,7 +27,7 @@ func TestInsertEmail(t *testing.T) {
 
 	assert.Equal(t, email.Subject, retrieved.Subject)
 	assert.Equal(t, email.Sender, retrieved.Sender)
-	assert.Equal(t, email.BodyText, retrieved.BodyText)
+	assert.Equal(t, email.BodyTextPreview, retrieved.BodyTextPreview)
 }
 
 // TestEmailExists tests checking if an email exists by file path
@@ -76,7 +76,7 @@ func TestGetEmailByID(t *testing.T) {
 	assert.Equal(t, id, retrieved.ID)
 	assert.Equal(t, "Test Subject", retrieved.Subject)
 	assert.Equal(t, "sender@test.com", retrieved.Sender)
-	assert.Equal(t, "Test body", retrieved.BodyText)
+	assert.Equal(t, "Test body", retrieved.BodyTextPreview)
 
 	// Non-existent ID should return nil
 	retrieved, err = db.GetEmailByID(99999)
@@ -155,13 +155,12 @@ func TestAttachmentOperations(t *testing.T) {
 	emailID, err := db.InsertEmail(email)
 	require.NoError(t, err)
 
-	// Create and insert attachment
+	// Create and insert attachment (metadata only, no BLOB data)
 	att := &Attachment{
 		EmailID:     emailID,
 		Filename:    "test.pdf",
 		ContentType: "application/pdf",
 		Size:        1024,
-		Data:        []byte("fake pdf data"),
 	}
 
 	attID, err := db.InsertAttachment(att)
@@ -177,7 +176,6 @@ func TestAttachmentOperations(t *testing.T) {
 	assert.Equal(t, "test.pdf", retrieved.Filename)
 	assert.Equal(t, "application/pdf", retrieved.ContentType)
 	assert.Equal(t, int64(1024), retrieved.Size)
-	assert.Equal(t, []byte("fake pdf data"), retrieved.Data)
 
 	// Retrieve attachment by ID
 	retrievedByID, err := db.GetAttachmentByID(attID)
@@ -191,7 +189,6 @@ func TestAttachmentOperations(t *testing.T) {
 		Filename:    "test2.jpg",
 		ContentType: "image/jpeg",
 		Size:        2048,
-		Data:        []byte("fake jpg data"),
 	}
 	_, err = db.InsertAttachment(att2)
 	require.NoError(t, err)

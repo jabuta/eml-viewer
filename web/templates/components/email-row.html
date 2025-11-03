@@ -23,13 +23,15 @@
                 {{end}}
             </p>
 
-            <!-- Snippet (use search snippet if available, otherwise body text) -->
+            <!-- Snippet (use search snippet if available, otherwise body text preview) -->
             {{if .Snippet}}
             <p class="text-sm text-gray-500 line-clamp-2">
                 {{.Snippet | html}}
             </p>
-            {{else if .BodyText}}
-            <p class="text-sm text-gray-500 line-clamp-2">{{.BodyText}}</p>
+            {{else if .BodyTextPreview}}
+            <p class="text-sm text-gray-500 line-clamp-2">
+                {{.BodyTextPreview}}
+            </p>
             {{end}}
         </div>
 

@@ -31,7 +31,7 @@ func TestSearchEmails_SingleTerm(t *testing.T) {
 	// Verify the results contain the search term
 	for _, result := range results {
 		hasMatch := strings.Contains(strings.ToLower(result.Subject), "meeting") ||
-			strings.Contains(strings.ToLower(result.BodyText), "meeting")
+			strings.Contains(strings.ToLower(result.BodyTextPreview), "meeting")
 		assert.True(t, hasMatch, "Result should contain 'meeting' in subject or body")
 	}
 }
@@ -57,7 +57,7 @@ func TestSearchEmails_MultipleTerms(t *testing.T) {
 	assert.Greater(t, len(results), 0, "Should find at least one result")
 
 	for _, result := range results {
-		text := strings.ToLower(result.Subject + " " + result.BodyText)
+		text := strings.ToLower(result.Subject + " " + result.BodyTextPreview)
 		assert.Contains(t, text, "project", "Result should contain 'project'")
 		assert.Contains(t, text, "meeting", "Result should contain 'meeting'")
 	}
@@ -85,7 +85,7 @@ func TestSearchEmails_FuzzyMatching(t *testing.T) {
 	found := false
 	for _, result := range results {
 		if strings.Contains(strings.ToLower(result.Subject), "meet") ||
-			strings.Contains(strings.ToLower(result.BodyText), "meet") {
+			strings.Contains(strings.ToLower(result.BodyTextPreview), "meet") {
 			found = true
 			break
 		}
@@ -300,7 +300,7 @@ func TestSearchEmailsWithFilters(t *testing.T) {
 
 	for _, result := range results {
 		assert.True(t, result.HasAttachments)
-		text := strings.ToLower(result.Subject + " " + result.BodyText)
+		text := strings.ToLower(result.Subject + " " + result.BodyTextPreview)
 		assert.Contains(t, text, "attachment")
 	}
 }

@@ -32,7 +32,7 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 		for i, email := range emails {
 			results[i] = &EmailSearchResult{
 				Email:   *email,
-				Snippet: truncateText(email.BodyText, 200),
+				Snippet: truncateText(email.BodyTextPreview, 200),
 			}
 		}
 		return results, nil
@@ -57,8 +57,8 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 	sql := `
 		SELECT
 			e.id, e.file_path, e.message_id, e.subject, e.sender, e.sender_name,
-			e.recipients, e.cc, e.bcc, e.date, e.body_text, e.body_html,
-			e.has_attachments, e.attachment_count, e.raw_headers, e.file_size,
+			e.recipients, e.date, e.body_text_preview,
+			e.has_attachments, e.attachment_count, e.file_size,
 			e.indexed_at, e.updated_at,
 			snippet(emails_fts, 4, '<mark>', '</mark>', '...', 32) as snippet
 		FROM emails e
@@ -79,8 +79,8 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 		result := &EmailSearchResult{}
 		err := rows.Scan(
 			&result.ID, &result.FilePath, &result.MessageID, &result.Subject, &result.Sender, &result.SenderName,
-			&result.Recipients, &result.CC, &result.BCC, &result.Date, &result.BodyText, &result.BodyHTML,
-			&result.HasAttachments, &result.AttachmentCount, &result.RawHeaders, &result.FileSize,
+			&result.Recipients, &result.Date, &result.BodyTextPreview,
+			&result.HasAttachments, &result.AttachmentCount, &result.FileSize,
 			&result.IndexedAt, &result.UpdatedAt,
 			&result.Snippet,
 		)
@@ -158,8 +158,8 @@ func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender, recipient string, 
 	sqlQuery := `
 		SELECT
 			e.id, e.file_path, e.message_id, e.subject, e.sender, e.sender_name,
-			e.recipients, e.cc, e.bcc, e.date, e.body_text, e.body_html,
-			e.has_attachments, e.attachment_count, e.raw_headers, e.file_size,
+			e.recipients, e.date, e.body_text_preview,
+			e.has_attachments, e.attachment_count, e.file_size,
 			e.indexed_at, e.updated_at
 	`
 
@@ -201,8 +201,8 @@ func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender, recipient string, 
 		result := &EmailSearchResult{}
 		err := rows.Scan(
 			&result.ID, &result.FilePath, &result.MessageID, &result.Subject, &result.Sender, &result.SenderName,
-			&result.Recipients, &result.CC, &result.BCC, &result.Date, &result.BodyText, &result.BodyHTML,
-			&result.HasAttachments, &result.AttachmentCount, &result.RawHeaders, &result.FileSize,
+			&result.Recipients, &result.Date, &result.BodyTextPreview,
+			&result.HasAttachments, &result.AttachmentCount, &result.FileSize,
 			&result.IndexedAt, &result.UpdatedAt,
 			&result.Snippet,
 		)
@@ -212,7 +212,7 @@ func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender, recipient string, 
 
 		// Generate snippet if not from FTS5
 		if result.Snippet == "" {
-			result.Snippet = truncateText(result.BodyText, 200)
+			result.Snippet = truncateText(result.BodyTextPreview, 200)
 		}
 
 		results = append(results, result)

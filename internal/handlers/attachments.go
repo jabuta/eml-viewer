@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -17,7 +18,7 @@ func (h *Handlers) DownloadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get attachment from database
+	// Get attachment metadata from database
 	att, err := h.db.GetAttachmentByID(id)
 	if err != nil {
 		http.Error(w, "Failed to load attachment", http.StatusInternalServerError)
@@ -28,11 +29,19 @@ func (h *Handlers) DownloadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get attachment data by parsing .eml file
+	data, err := h.db.GetAttachmentData(id)
+	if err != nil {
+		log.Printf("Error getting attachment data: %v", err)
+		http.Error(w, "Failed to load attachment data", http.StatusInternalServerError)
+		return
+	}
+
 	// Set headers for download
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+att.Filename+"\"")
 	w.Header().Set("Content-Type", att.ContentType)
-	w.Header().Set("Content-Length", strconv.FormatInt(att.Size, 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(data)), 10))
 
 	// Write attachment data
-	w.Write(att.Data)
+	w.Write(data)
 }

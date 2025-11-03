@@ -28,11 +28,23 @@ func NewScanner(rootPath string) *Scanner {
 	}
 }
 
-// Scan recursively scans for .eml files
+// GetRootPath returns the root path for resolving relative paths
+func (s *Scanner) GetRootPath() string {
+	return s.rootPath
+}
+
+// Scan recursively scans for .eml files and returns paths relative to rootPath
+// This ensures portability across different systems and drive mappings
 func (s *Scanner) Scan() ([]string, error) {
 	var emlFiles []string
 
-	err := filepath.Walk(s.rootPath, func(path string, info os.FileInfo, err error) error {
+	// Get absolute path of root for reliable relative path calculation
+	absRoot, err := filepath.Abs(s.rootPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute root path: %w", err)
+	}
+
+	err = filepath.Walk(absRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error accessing path %s: %w", path, err)
 		}
@@ -44,7 +56,12 @@ func (s *Scanner) Scan() ([]string, error) {
 
 		// Check if file has .eml extension
 		if strings.ToLower(filepath.Ext(path)) == ".eml" {
-			emlFiles = append(emlFiles, path)
+			// Store relative path from root for portability
+			relPath, err := filepath.Rel(absRoot, path)
+			if err != nil {
+				return fmt.Errorf("failed to get relative path for %s: %w", path, err)
+			}
+			emlFiles = append(emlFiles, relPath)
 		}
 
 		return nil

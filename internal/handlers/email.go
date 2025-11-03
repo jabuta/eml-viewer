@@ -18,34 +18,28 @@ func (h *Handlers) ViewEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get email from database
-	email, err := h.db.GetEmailByID(id)
+	// Get email with full content (parses from .eml file)
+	emailWithContent, err := h.db.GetEmailWithFullContent(id)
 	if err != nil {
+		log.Printf("Error loading email with full content: %v", err)
 		http.Error(w, "Failed to load email", http.StatusInternalServerError)
 		return
 	}
-	if email == nil {
+	if emailWithContent == nil {
 		http.Error(w, "Email not found", http.StatusNotFound)
-		return
-	}
-
-	// Get attachments
-	attachments, err := h.db.GetAttachmentsByEmailID(id)
-	if err != nil {
-		http.Error(w, "Failed to load attachments", http.StatusInternalServerError)
 		return
 	}
 
 	// Prepare template data
 	pageTitle := "Email - EML Viewer"
-	if email.Subject != "" {
-		pageTitle = email.Subject + " - EML Viewer"
+	if emailWithContent.Subject != "" {
+		pageTitle = emailWithContent.Subject + " - EML Viewer"
 	}
 
 	data := map[string]interface{}{
 		"PageTitle":   pageTitle,
-		"Email":       email,
-		"Attachments": attachments,
+		"Email":       emailWithContent,
+		"Attachments": emailWithContent.Attachments,
 	}
 
 	// Render template
