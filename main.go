@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"io/fs"
 	"log"
 	"net/http"
@@ -17,12 +16,10 @@ import (
 	"github.com/felo/eml-viewer/internal/db"
 	"github.com/felo/eml-viewer/internal/handlers"
 	"github.com/felo/eml-viewer/internal/indexer"
+	"github.com/felo/eml-viewer/web"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
-
-//go:embed web/templates/* web/templates/components/* web/static/css/* web/static/js/*
-var embeddedFiles embed.FS
 
 func main() {
 	// Load configuration
@@ -61,7 +58,7 @@ func main() {
 
 	// Initialize handlers with embedded templates
 	h := handlers.New(database, cfg)
-	if err := h.LoadTemplates(embeddedFiles); err != nil {
+	if err := h.LoadTemplates(web.Assets); err != nil {
 		log.Fatalf("Failed to load templates: %v", err)
 	}
 
@@ -82,7 +79,7 @@ func main() {
 	r.Get("/scan", h.ScanPage)
 
 	// Static files from embedded assets
-	staticFS, err := fs.Sub(embeddedFiles, "web/static")
+	staticFS, err := fs.Sub(web.Assets, "static")
 	if err != nil {
 		log.Fatalf("Failed to get static files: %v", err)
 	}

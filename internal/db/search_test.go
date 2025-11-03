@@ -11,16 +11,16 @@ import (
 
 // TestSearchEmails_SingleTerm tests searching with a single term
 func TestSearchEmails_SingleTerm(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails
 	emails := []*Email{
-		createTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's meet tomorrow at 10am"),
-		createTestEmail("Project Update", "sender2@test.com", "The project is going well"),
-		createTestEmail("Meeting Notes", "sender3@test.com", "Here are the meeting notes from yesterday"),
+		CreateTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's meet tomorrow at 10am"),
+		CreateTestEmail("Project Update", "sender2@test.com", "The project is going well"),
+		CreateTestEmail("Meeting Notes", "sender3@test.com", "Here are the meeting notes from yesterday"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search for "meeting"
 	results, err := db.SearchEmails("meeting", 10)
@@ -38,16 +38,16 @@ func TestSearchEmails_SingleTerm(t *testing.T) {
 
 // TestSearchEmails_MultipleTerms tests searching with multiple terms (AND logic)
 func TestSearchEmails_MultipleTerms(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails
 	emails := []*Email{
-		createTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's discuss the project tomorrow"),
-		createTestEmail("Project Update", "sender2@test.com", "The project needs a meeting"),
-		createTestEmail("Lunch Plans", "sender3@test.com", "Want to grab lunch tomorrow?"),
+		CreateTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's discuss the project tomorrow"),
+		CreateTestEmail("Project Update", "sender2@test.com", "The project needs a meeting"),
+		CreateTestEmail("Lunch Plans", "sender3@test.com", "Want to grab lunch tomorrow?"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search for "project meeting"
 	results, err := db.SearchEmails("project meeting", 10)
@@ -65,15 +65,15 @@ func TestSearchEmails_MultipleTerms(t *testing.T) {
 
 // TestSearchEmails_FuzzyMatching tests fuzzy search with partial words
 func TestSearchEmails_FuzzyMatching(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails
 	emails := []*Email{
-		createTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's meet tomorrow"),
-		createTestEmail("Project Discussion", "sender2@test.com", "We need to discuss the project"),
+		CreateTestEmail("Meeting Tomorrow", "sender1@test.com", "Let's meet tomorrow"),
+		CreateTestEmail("Project Discussion", "sender2@test.com", "We need to discuss the project"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search with partial word "meet" should match "meeting" and "meet"
 	results, err := db.SearchEmails("meet", 10)
@@ -95,13 +95,13 @@ func TestSearchEmails_FuzzyMatching(t *testing.T) {
 
 // TestSearchEmails_ResultHighlighting tests that search results include highlighting
 func TestSearchEmails_ResultHighlighting(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test email
-	email := createTestEmail("Important Meeting", "sender@test.com",
+	email := CreateTestEmail("Important Meeting", "sender@test.com",
 		"This is a very important meeting that we need to attend. The meeting will discuss crucial topics.")
-	insertTestEmails(t, db, []*Email{email})
+	InsertTestEmails(t, db, []*Email{email})
 
 	// Search for "meeting"
 	results, err := db.SearchEmails("meeting", 10)
@@ -122,16 +122,16 @@ func TestSearchEmails_ResultHighlighting(t *testing.T) {
 
 // TestSearchEmails_EmptyQuery tests that empty query returns recent emails
 func TestSearchEmails_EmptyQuery(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails
 	emails := []*Email{
-		createTestEmail("Email 1", "sender1@test.com", "Body 1"),
-		createTestEmail("Email 2", "sender2@test.com", "Body 2"),
-		createTestEmail("Email 3", "sender3@test.com", "Body 3"),
+		CreateTestEmail("Email 1", "sender1@test.com", "Body 1"),
+		CreateTestEmail("Email 2", "sender2@test.com", "Body 2"),
+		CreateTestEmail("Email 3", "sender3@test.com", "Body 3"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search with empty query
 	results, err := db.SearchEmails("", 10)
@@ -147,13 +147,13 @@ func TestSearchEmails_EmptyQuery(t *testing.T) {
 
 // TestSearchEmails_SpecialCharacters tests that special FTS5 characters are escaped
 func TestSearchEmails_SpecialCharacters(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test email with special characters
-	email := createTestEmail("Test Email", "sender@test.com",
+	email := CreateTestEmail("Test Email", "sender@test.com",
 		"This email contains special chars: test@example.com and some-dashes")
-	insertTestEmails(t, db, []*Email{email})
+	InsertTestEmails(t, db, []*Email{email})
 
 	// Test with regular characters (FTS5 has limitations with special chars like @ and -)
 	testCases := []string{
@@ -175,16 +175,16 @@ func TestSearchEmails_SpecialCharacters(t *testing.T) {
 
 // TestSearchEmails_Limit tests that search respects the limit parameter
 func TestSearchEmails_Limit(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert many test emails with unique subjects
 	emails := []*Email{}
 	for i := 1; i <= 20; i++ {
-		email := createTestEmail(fmt.Sprintf("Test Email %d", i), "sender@test.com", "This is test email body content")
+		email := CreateTestEmail(fmt.Sprintf("Test Email %d", i), "sender@test.com", "This is test email body content")
 		emails = append(emails, email)
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search with limit of 5
 	results, err := db.SearchEmails("test", 5)
@@ -201,19 +201,19 @@ func TestSearchEmails_Limit(t *testing.T) {
 
 // TestSearchEmails_Ranking tests that results are ranked by relevance
 func TestSearchEmails_Ranking(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails with varying relevance
 	emails := []*Email{
-		createTestEmail("Important Important Important", "sender1@test.com",
+		CreateTestEmail("Important Important Important", "sender1@test.com",
 			"This email mentions important three times in the subject and is very important"),
-		createTestEmail("Regular Email", "sender2@test.com",
+		CreateTestEmail("Regular Email", "sender2@test.com",
 			"This is a regular email"),
-		createTestEmail("Important Topic", "sender3@test.com",
+		CreateTestEmail("Important Topic", "sender3@test.com",
 			"This email has important in the subject"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Search for "important"
 	results, err := db.SearchEmails("important", 10)
@@ -230,16 +230,16 @@ func TestSearchEmails_Ranking(t *testing.T) {
 
 // TestSearchEmailsWithFilters tests searching with additional filters
 func TestSearchEmailsWithFilters(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test emails
 	emails := []*Email{
-		createTestEmailWithAttachments("Email with Attachment", "alice@test.com", "Body 1", 1),
-		createTestEmail("Email without Attachment", "bob@test.com", "Body 2"),
-		createTestEmailWithAttachments("Another with Attachment", "alice@test.com", "Body 3", 2),
+		CreateTestEmailWithAttachments("Email with Attachment", "alice@test.com", "Body 1", 1),
+		CreateTestEmail("Email without Attachment", "bob@test.com", "Body 2"),
+		CreateTestEmailWithAttachments("Another with Attachment", "alice@test.com", "Body 3", 2),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Test filter by sender
 	results, err := db.SearchEmailsWithFilters("", "alice@test.com", false, "", "", 10)

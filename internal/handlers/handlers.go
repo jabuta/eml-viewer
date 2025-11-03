@@ -26,8 +26,8 @@ func New(database *db.DB, cfg *config.Config) *Handlers {
 // LoadTemplates loads HTML templates from embedded filesystem
 func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
 	tmpl, err := template.ParseFS(embeddedFiles,
-		"web/templates/*.html",
-		"web/templates/components/*.html",
+		"templates/*.html",
+		"templates/components/*.html",
 	)
 	if err != nil {
 		return err

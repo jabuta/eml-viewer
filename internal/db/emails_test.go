@@ -11,10 +11,10 @@ import (
 
 // TestInsertEmail tests inserting an email into the database
 func TestInsertEmail(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
-	email := createTestEmail("Test Subject", "sender@test.com", "Test body content")
+	email := CreateTestEmail("Test Subject", "sender@test.com", "Test body content")
 
 	id, err := db.InsertEmail(email)
 
@@ -33,10 +33,10 @@ func TestInsertEmail(t *testing.T) {
 
 // TestEmailExists tests checking if an email exists by file path
 func TestEmailExists(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
-	email := createTestEmail("Test Subject", "sender@test.com", "Test body")
+	email := CreateTestEmail("Test Subject", "sender@test.com", "Test body")
 	email.FilePath = "/unique/path/test.eml"
 
 	// Should not exist initially
@@ -61,11 +61,11 @@ func TestEmailExists(t *testing.T) {
 
 // TestGetEmailByID tests retrieving an email by its ID
 func TestGetEmailByID(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert test email
-	email := createTestEmail("Test Subject", "sender@test.com", "Test body")
+	email := CreateTestEmail("Test Subject", "sender@test.com", "Test body")
 	id, err := db.InsertEmail(email)
 	require.NoError(t, err)
 
@@ -87,18 +87,18 @@ func TestGetEmailByID(t *testing.T) {
 
 // TestListEmails tests listing emails with pagination
 func TestListEmails(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert multiple test emails
 	emails := []*Email{
-		createTestEmailWithDate("Email 1", "sender1@test.com", "Body 1", time.Now().Add(-3*time.Hour)),
-		createTestEmailWithDate("Email 2", "sender2@test.com", "Body 2", time.Now().Add(-2*time.Hour)),
-		createTestEmailWithDate("Email 3", "sender3@test.com", "Body 3", time.Now().Add(-1*time.Hour)),
-		createTestEmailWithDate("Email 4", "sender4@test.com", "Body 4", time.Now()),
+		CreateTestEmailWithDate("Email 1", "sender1@test.com", "Body 1", time.Now().Add(-3*time.Hour)),
+		CreateTestEmailWithDate("Email 2", "sender2@test.com", "Body 2", time.Now().Add(-2*time.Hour)),
+		CreateTestEmailWithDate("Email 3", "sender3@test.com", "Body 3", time.Now().Add(-1*time.Hour)),
+		CreateTestEmailWithDate("Email 4", "sender4@test.com", "Body 4", time.Now()),
 	}
 
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Test listing with limit
 	list, err := db.ListEmails(2, 0)
@@ -124,8 +124,8 @@ func TestListEmails(t *testing.T) {
 
 // TestCountEmails tests counting total emails
 func TestCountEmails(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Initially should be 0
 	count, err := db.CountEmails()
@@ -134,11 +134,11 @@ func TestCountEmails(t *testing.T) {
 
 	// Insert emails
 	emails := []*Email{
-		createTestEmail("Email 1", "sender1@test.com", "Body 1"),
-		createTestEmail("Email 2", "sender2@test.com", "Body 2"),
-		createTestEmail("Email 3", "sender3@test.com", "Body 3"),
+		CreateTestEmail("Email 1", "sender1@test.com", "Body 1"),
+		CreateTestEmail("Email 2", "sender2@test.com", "Body 2"),
+		CreateTestEmail("Email 3", "sender3@test.com", "Body 3"),
 	}
-	insertTestEmails(t, db, emails)
+	InsertTestEmails(t, db, emails)
 
 	// Count should be 3
 	count, err = db.CountEmails()
@@ -148,11 +148,11 @@ func TestCountEmails(t *testing.T) {
 
 // TestAttachmentOperations tests inserting and retrieving attachments
 func TestAttachmentOperations(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert email first
-	email := createTestEmail("Email with Attachment", "sender@test.com", "Body")
+	email := CreateTestEmail("Email with Attachment", "sender@test.com", "Body")
 	emailID, err := db.InsertEmail(email)
 	require.NoError(t, err)
 
@@ -204,11 +204,11 @@ func TestAttachmentOperations(t *testing.T) {
 
 // TestNullDateHandling tests that NULL dates are handled correctly
 func TestNullDateHandling(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Create email with NULL date
-	email := createTestEmail("Test Subject", "sender@test.com", "Body")
+	email := CreateTestEmail("Test Subject", "sender@test.com", "Body")
 	email.Date = sql.NullTime{Valid: false} // NULL date
 
 	id, err := db.InsertEmail(email)
@@ -223,7 +223,7 @@ func TestNullDateHandling(t *testing.T) {
 	assert.True(t, retrieved.GetDate().IsZero(), "GetDate() should return zero time for NULL")
 
 	// Create email with valid date
-	email2 := createTestEmail("Test Subject 2", "sender2@test.com", "Body 2")
+	email2 := CreateTestEmail("Test Subject 2", "sender2@test.com", "Body 2")
 	testDate := time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC)
 	email2.Date = sql.NullTime{Time: testDate, Valid: true}
 
@@ -240,11 +240,11 @@ func TestNullDateHandling(t *testing.T) {
 
 // TestFTS5TriggerBehavior tests that FTS5 triggers work correctly
 func TestFTS5TriggerBehavior(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Insert email
-	email := createTestEmail("Searchable Subject", "sender@test.com", "Searchable body content")
+	email := CreateTestEmail("Searchable Subject", "sender@test.com", "Searchable body content")
 	id, err := db.InsertEmail(email)
 	require.NoError(t, err)
 
@@ -255,7 +255,7 @@ func TestFTS5TriggerBehavior(t *testing.T) {
 	assert.Equal(t, id, results[0].ID)
 
 	// Insert another email
-	email2 := createTestEmail("Another Email", "sender2@test.com", "Different content")
+	email2 := CreateTestEmail("Another Email", "sender2@test.com", "Different content")
 	id2, err := db.InsertEmail(email2)
 	require.NoError(t, err)
 
@@ -273,8 +273,8 @@ func TestFTS5TriggerBehavior(t *testing.T) {
 
 // TestSettings tests setting and getting application settings
 func TestSettings(t *testing.T) {
-	db := setupTestDB(t)
-	defer cleanupTestDB(t, db)
+	db := SetupTestDB(t)
+	defer CleanupTestDB(t, db)
 
 	// Get non-existent setting
 	value, err := db.GetSetting("test_key")

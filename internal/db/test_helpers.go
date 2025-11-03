@@ -7,8 +7,13 @@ import (
 	"time"
 )
 
-// setupTestDB creates an in-memory SQLite database for testing
-func setupTestDB(t *testing.T) *DB {
+// NewNullTime creates a sql.NullTime from a time.Time
+func NewNullTime(t time.Time) sql.NullTime {
+	return sql.NullTime{Time: t, Valid: true}
+}
+
+// SetupTestDB creates an in-memory SQLite database for testing
+func SetupTestDB(t *testing.T) *DB {
 	t.Helper()
 
 	db, err := Open(":memory:")
@@ -19,8 +24,8 @@ func setupTestDB(t *testing.T) *DB {
 	return db
 }
 
-// cleanupTestDB closes the test database
-func cleanupTestDB(t *testing.T, db *DB) {
+// CleanupTestDB closes the test database
+func CleanupTestDB(t *testing.T, db *DB) {
 	t.Helper()
 
 	if err := db.Close(); err != nil {
@@ -28,8 +33,8 @@ func cleanupTestDB(t *testing.T, db *DB) {
 	}
 }
 
-// createTestEmail creates a test email with default values
-func createTestEmail(subject, sender, body string) *Email {
+// CreateTestEmail creates a test email with default values
+func CreateTestEmail(subject, sender, body string) *Email {
 	return &Email{
 		FilePath:        fmt.Sprintf("/test/%s.eml", subject),
 		MessageID:       fmt.Sprintf("<%s@test.com>", subject),
@@ -49,8 +54,8 @@ func createTestEmail(subject, sender, body string) *Email {
 	}
 }
 
-// insertTestEmails inserts multiple test emails and returns them
-func insertTestEmails(t *testing.T, db *DB, emails []*Email) []*Email {
+// InsertTestEmails inserts multiple test emails and returns them
+func InsertTestEmails(t *testing.T, db *DB, emails []*Email) []*Email {
 	t.Helper()
 
 	for i, email := range emails {
@@ -64,16 +69,16 @@ func insertTestEmails(t *testing.T, db *DB, emails []*Email) []*Email {
 	return emails
 }
 
-// createTestEmailWithDate creates a test email with a specific date
-func createTestEmailWithDate(subject, sender, body string, date time.Time) *Email {
-	email := createTestEmail(subject, sender, body)
+// CreateTestEmailWithDate creates a test email with a specific date
+func CreateTestEmailWithDate(subject, sender, body string, date time.Time) *Email {
+	email := CreateTestEmail(subject, sender, body)
 	email.Date = sql.NullTime{Time: date, Valid: true}
 	return email
 }
 
-// createTestEmailWithAttachments creates a test email with attachments
-func createTestEmailWithAttachments(subject, sender, body string, attachmentCount int) *Email {
-	email := createTestEmail(subject, sender, body)
+// CreateTestEmailWithAttachments creates a test email with attachments
+func CreateTestEmailWithAttachments(subject, sender, body string, attachmentCount int) *Email {
+	email := CreateTestEmail(subject, sender, body)
 	email.HasAttachments = attachmentCount > 0
 	email.AttachmentCount = attachmentCount
 	return email
