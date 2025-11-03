@@ -412,3 +412,36 @@ func (db *DB) checkExistenceChunk(filePaths []string, result map[string]bool) er
 
 	return rows.Err()
 }
+
+// GetUniqueSenders retrieves a list of unique sender email addresses
+// ordered by frequency (most emails sent first)
+func (db *DB) GetUniqueSenders(limit int) ([]string, error) {
+	rows, err := db.Query(`
+		SELECT sender, COUNT(*) as email_count
+		FROM emails
+		WHERE sender != ''
+		GROUP BY sender
+		ORDER BY email_count DESC, sender ASC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unique senders: %w", err)
+	}
+	defer rows.Close()
+
+	var senders []string
+	for rows.Next() {
+		var sender string
+		var count int
+		if err := rows.Scan(&sender, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan sender: %w", err)
+		}
+		senders = append(senders, sender)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating senders: %w", err)
+	}
+
+	return senders, nil
+}

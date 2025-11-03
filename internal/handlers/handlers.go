@@ -25,7 +25,14 @@ func New(database *db.DB, cfg *config.Config) *Handlers {
 
 // LoadTemplates loads HTML templates from embedded filesystem
 func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
-	tmpl, err := template.ParseFS(embeddedFiles,
+	// Create template with custom functions
+	tmpl := template.New("").Funcs(template.FuncMap{
+		"html": func(s string) template.HTML {
+			return template.HTML(s)
+		},
+	})
+
+	tmpl, err := tmpl.ParseFS(embeddedFiles,
 		"templates/*.html",
 		"templates/components/*.html",
 	)

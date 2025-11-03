@@ -86,6 +86,11 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 
 // SearchEmailsWithFilters performs a search with additional filters
 func (db *DB) SearchEmailsWithFilters(query, sender string, hasAttachments bool, dateFrom, dateTo string, limit int) ([]*EmailSearchResult, error) {
+	return db.SearchEmailsWithFiltersAndOffset(query, sender, hasAttachments, dateFrom, dateTo, limit, 0)
+}
+
+// SearchEmailsWithFiltersAndOffset performs a search with additional filters and pagination
+func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender string, hasAttachments bool, dateFrom, dateTo string, limit, offset int) ([]*EmailSearchResult, error) {
 	// Build WHERE clause
 	var conditions []string
 	var args []interface{}
@@ -157,8 +162,8 @@ func (db *DB) SearchEmailsWithFilters(query, sender string, hasAttachments bool,
 		sqlQuery += " ORDER BY e.date DESC"
 	}
 
-	sqlQuery += " LIMIT ?"
-	args = append(args, limit)
+	sqlQuery += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
 
 	rows, err := db.Query(sqlQuery, args...)
 	if err != nil {

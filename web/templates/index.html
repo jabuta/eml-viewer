@@ -5,56 +5,147 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1 relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                <div
+                    class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                >
+                    <svg
+                        class="h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
                     </svg>
                 </div>
-                <input type="text" name="q" id="search-input" placeholder="Search emails by subject, sender, or content..." class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" hx-get="/search" hx-trigger="keyup changed delay:300ms, search" hx-target="#email-list" hx-indicator="#search-spinner"/>
+                <input
+                    type="text"
+                    name="q"
+                    id="search-input"
+                    placeholder="Search emails by subject, sender, or content..."
+                    class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    hx-get="/search"
+                    hx-trigger="keyup changed delay:300ms, search"
+                    hx-target="#email-list"
+                    hx-include="[name='sender'], [name='has_attachments'], [name='date_from'], [name='date_to']"
+                    hx-indicator="#search-spinner"
+                />
             </div>
-            <button onclick="document.getElementById('search-input').value = ''; document.getElementById('search-input').dispatchEvent(new Event('search'))" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">Clear</button>
+            <button
+                onclick="document.getElementById('search-input').value = ''; clearFilters(); document.getElementById('search-input').dispatchEvent(new Event('search'))"
+                class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+                Clear All
+            </button>
+            <button
+                onclick="document.getElementById('filter-panel').parentElement.classList.toggle('hidden')"
+                class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+                <svg
+                    class="w-5 h-5 inline-block mr-2 -mt-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                    />
+                </svg>
+                Filters
+            </button>
         </div>
-        
+
         <div id="search-spinner" class="htmx-indicator mt-2">
             <div class="flex items-center text-sm text-gray-500">
-                <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                    class="animate-spin h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                    ></circle>
+                    <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                 </svg>
                 Searching...
             </div>
         </div>
     </div>
 
+    <!-- Filters Panel (collapsible) -->
+    <div class="hidden">{{template "filters" .}}</div>
+
     <!-- Email List Container -->
     <div id="email-list" class="space-y-2">
-        {{if .Emails}}
-            {{range .Emails}}
-                {{template "email-row" .}}
-            {{end}}
+        {{if .Emails}} {{range .Emails}} {{template "email-row" .}} {{end}}
         {{else}}
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-                <h3 class="mt-4 text-lg font-medium text-gray-900">No emails found</h3>
-                <p class="mt-2 text-sm text-gray-500">Place .eml files in the <code class="bg-gray-100 px-2 py-1 rounded">emails</code> folder and restart the application.</p>
-                <div class="mt-6">
-                    <a href="/scan" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">Scan for Emails</a>
-                </div>
+        <div
+            class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center"
+        >
+            <svg
+                class="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+            </svg>
+            <h3 class="mt-4 text-lg font-medium text-gray-900">
+                No emails found
+            </h3>
+            <p class="mt-2 text-sm text-gray-500">
+                Place .eml files in the
+                <code class="bg-gray-100 px-2 py-1 rounded">emails</code> folder
+                and restart the application.
+            </p>
+            <div class="mt-6">
+                <a
+                    href="/scan"
+                    class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >Scan for Emails</a
+                >
             </div>
+        </div>
         {{end}}
     </div>
 
     {{if .HasMore}}
-    <div class="flex justify-center mt-6">
-        <button hx-get="/?offset={{.NextOffset}}" hx-target="#email-list" hx-swap="beforeend" class="px-6 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Load More</button>
+    <div class="flex justify-center mt-6" id="load-more-container">
+        <button
+            hx-get="/?offset={{.NextOffset}}"
+            hx-target="#email-list"
+            hx-swap="beforeend"
+            class="px-6 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+            Load More
+        </button>
     </div>
     {{end}}
 </div>
 
 {{if .Stats}}
-<div class="mt-8 text-center text-sm text-gray-500">Showing {{len .Emails}} of {{.Stats.TotalEmails}} emails</div>
-{{end}}
-
-{{template "footer" .}}
+<div class="mt-8 text-center text-sm text-gray-500">
+    Showing {{len .Emails}} of {{.Stats.TotalEmails}} emails
+</div>
+{{end}} {{template "footer" .}}

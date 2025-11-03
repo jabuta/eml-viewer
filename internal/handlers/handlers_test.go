@@ -64,9 +64,13 @@ func TestIndexTemplateRendersWithData(t *testing.T) {
 		"Stats": map[string]interface{}{
 			"TotalEmails": 10,
 		},
-		"Emails": []*db.Email{
-			{ID: 1, Subject: "Test Email", Sender: "test@example.com"},
+		"Emails": []*db.EmailSearchResult{
+			{
+				Email:   db.Email{ID: 1, Subject: "Test Email", Sender: "test@example.com"},
+				Snippet: "",
+			},
 		},
+		"Senders": []string{},
 	}
 
 	var buf bytes.Buffer
