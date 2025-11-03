@@ -11,6 +11,14 @@ type EmailSearchResult struct {
 	Snippet string
 }
 
+// escapeFTS5 escapes special FTS5 characters and wraps terms in quotes
+func escapeFTS5(term string) string {
+	// Escape double quotes by doubling them
+	term = strings.ReplaceAll(term, `"`, `""`)
+	// Wrap in quotes to treat special chars as literals
+	return `"` + term + `"`
+}
+
 // SearchEmails performs a full-text search on emails using FTS5
 func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error) {
 	if query == "" {
@@ -35,9 +43,14 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 	terms := strings.Fields(query)
 	fuzzyTerms := make([]string, len(terms))
 	for i, term := range terms {
-		// Escape special FTS5 characters
-		term = strings.ReplaceAll(term, `"`, `""`)
-		fuzzyTerms[i] = term + "*"
+		// For terms with special characters (like @, .), quote them without wildcard
+		if strings.ContainsAny(term, "@.-") {
+			fuzzyTerms[i] = escapeFTS5(term)
+		} else {
+			// For regular terms, escape and add wildcard
+			escapedTerm := strings.ReplaceAll(term, `"`, `""`)
+			fuzzyTerms[i] = `"` + escapedTerm + `"` + "*"
+		}
 	}
 	fuzzyQuery := strings.Join(fuzzyTerms, " ")
 
@@ -85,12 +98,12 @@ func (db *DB) SearchEmails(query string, limit int) ([]*EmailSearchResult, error
 }
 
 // SearchEmailsWithFilters performs a search with additional filters
-func (db *DB) SearchEmailsWithFilters(query, sender string, hasAttachments bool, dateFrom, dateTo string, limit int) ([]*EmailSearchResult, error) {
-	return db.SearchEmailsWithFiltersAndOffset(query, sender, hasAttachments, dateFrom, dateTo, limit, 0)
+func (db *DB) SearchEmailsWithFilters(query, sender, recipient string, hasAttachments bool, dateFrom, dateTo string, limit int) ([]*EmailSearchResult, error) {
+	return db.SearchEmailsWithFiltersAndOffset(query, sender, recipient, hasAttachments, dateFrom, dateTo, limit, 0)
 }
 
 // SearchEmailsWithFiltersAndOffset performs a search with additional filters and pagination
-func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender string, hasAttachments bool, dateFrom, dateTo string, limit, offset int) ([]*EmailSearchResult, error) {
+func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender, recipient string, hasAttachments bool, dateFrom, dateTo string, limit, offset int) ([]*EmailSearchResult, error) {
 	// Build WHERE clause
 	var conditions []string
 	var args []interface{}
@@ -100,8 +113,14 @@ func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender string, hasAttachme
 		terms := strings.Fields(query)
 		fuzzyTerms := make([]string, len(terms))
 		for i, term := range terms {
-			term = strings.ReplaceAll(term, `"`, `""`)
-			fuzzyTerms[i] = term + "*"
+			// For terms with special characters (like @, .), quote them without wildcard
+			if strings.ContainsAny(term, "@.-") {
+				fuzzyTerms[i] = escapeFTS5(term)
+			} else {
+				// For regular terms, escape and add wildcard
+				escapedTerm := strings.ReplaceAll(term, `"`, `""`)
+				fuzzyTerms[i] = `"` + escapedTerm + `"` + "*"
+			}
 		}
 		fuzzyQuery := strings.Join(fuzzyTerms, " ")
 		conditions = append(conditions, "emails_fts MATCH ?")
@@ -112,6 +131,12 @@ func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender string, hasAttachme
 	if sender != "" {
 		conditions = append(conditions, "e.sender LIKE ?")
 		args = append(args, "%"+sender+"%")
+	}
+
+	// Recipient filter
+	if recipient != "" {
+		conditions = append(conditions, "e.recipients LIKE ?")
+		args = append(args, "%"+recipient+"%")
 	}
 
 	// Attachments filter

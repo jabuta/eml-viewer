@@ -12,6 +12,7 @@ import (
 func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	sender := r.URL.Query().Get("sender")
+	recipient := r.URL.Query().Get("recipient")
 	hasAttachmentsParam := r.URL.Query().Get("has_attachments")
 	dateFrom := r.URL.Query().Get("date_from")
 	dateTo := r.URL.Query().Get("date_to")
@@ -29,14 +30,14 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If no search query and no filters, show recent emails
-	if query == "" && sender == "" && !hasAttachments && dateFrom == "" && dateTo == "" {
+	if query == "" && sender == "" && recipient == "" && !hasAttachments && dateFrom == "" && dateTo == "" {
 		h.Index(w, r)
 		return
 	}
 
 	// Fetch one more than limit to check if there are more results
 	limit := 50
-	results, err := h.db.SearchEmailsWithFiltersAndOffset(query, sender, hasAttachments, dateFrom, dateTo, limit+1, offset)
+	results, err := h.db.SearchEmailsWithFiltersAndOffset(query, sender, recipient, hasAttachments, dateFrom, dateTo, limit+1, offset)
 	if err != nil {
 		log.Printf("Search error: %v", err)
 		http.Error(w, "Search failed", http.StatusInternalServerError)
@@ -80,7 +81,7 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 		loadMoreBtn := fmt.Sprintf(`
 			<div class="flex justify-center mt-6" id="load-more-container">
 				<button
-					hx-get="/search?q=%s&sender=%s&has_attachments=%s&date_from=%s&date_to=%s&offset=%d"
+					hx-get="/search?q=%s&sender=%s&recipient=%s&has_attachments=%s&date_from=%s&date_to=%s&offset=%d"
 					hx-target="#email-list"
 					hx-swap="beforeend"
 					hx-indicator="#search-spinner"
@@ -89,7 +90,7 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 					Load More
 				</button>
 			</div>
-		`, query, sender, hasAttachmentsParam, dateFrom, dateTo, nextOffset)
+		`, query, sender, recipient, hasAttachmentsParam, dateFrom, dateTo, nextOffset)
 		buf.WriteString(loadMoreBtn)
 	}
 

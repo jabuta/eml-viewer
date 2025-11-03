@@ -155,20 +155,32 @@ func TestSearchEmails_SpecialCharacters(t *testing.T) {
 		"This email contains special chars: test@example.com and some-dashes")
 	InsertTestEmails(t, db, []*Email{email})
 
-	// Test with regular characters (FTS5 has limitations with special chars like @ and -)
-	testCases := []string{
-		"test email",    // space - should work
-		"example",       // single word
-		"special chars", // multiple words
+	// Test with regular characters
+	testCases := []struct {
+		query       string
+		shouldFind  bool
+		description string
+	}{
+		{"test email", true, "space - should work"},
+		{"example", true, "single word"},
+		{"special chars", true, "multiple words"},
+		{"test@example.com", true, "email with @ symbol"},
+		{"@example.com", true, "partial email with @"},
+		{"sender@test.com", true, "sender email address"},
+		{"some-dashes", true, "word with dashes"},
 	}
 
-	for _, query := range testCases {
-		t.Run("Query: "+query, func(t *testing.T) {
-			results, err := db.SearchEmails(query, 10)
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			results, err := db.SearchEmails(tc.query, 10)
 
-			// Should not error, even if no results found
+			// Should not error
 			assert.NoError(t, err, "Search should not error")
 			assert.NotNil(t, results, "Results should not be nil")
+
+			if tc.shouldFind {
+				assert.Greater(t, len(results), 0, "Should find at least one result")
+			}
 		})
 	}
 }
@@ -234,15 +246,18 @@ func TestSearchEmailsWithFilters(t *testing.T) {
 	defer CleanupTestDB(t, db)
 
 	// Insert test emails
-	emails := []*Email{
-		CreateTestEmailWithAttachments("Email with Attachment", "alice@test.com", "Body 1", 1),
-		CreateTestEmail("Email without Attachment", "bob@test.com", "Body 2"),
-		CreateTestEmailWithAttachments("Another with Attachment", "alice@test.com", "Body 3", 2),
-	}
+	email1 := CreateTestEmailWithAttachments("Email with Attachment", "alice@test.com", "Body 1", 1)
+	email1.Recipients = "john@company.com"
+	email2 := CreateTestEmail("Email without Attachment", "bob@test.com", "Body 2")
+	email2.Recipients = "jane@company.com"
+	email3 := CreateTestEmailWithAttachments("Another with Attachment", "alice@test.com", "Body 3", 2)
+	email3.Recipients = "john@company.com, jane@company.com"
+
+	emails := []*Email{email1, email2, email3}
 	InsertTestEmails(t, db, emails)
 
 	// Test filter by sender
-	results, err := db.SearchEmailsWithFilters("", "alice@test.com", false, "", "", 10)
+	results, err := db.SearchEmailsWithFilters("", "alice@test.com", "", false, "", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 2, "Should find 2 emails from alice@test.com")
 
@@ -250,8 +265,17 @@ func TestSearchEmailsWithFilters(t *testing.T) {
 		assert.Equal(t, "alice@test.com", result.Sender)
 	}
 
+	// Test filter by recipient
+	results, err = db.SearchEmailsWithFilters("", "", "john@company.com", false, "", "", 10)
+	require.NoError(t, err)
+	assert.Len(t, results, 2, "Should find 2 emails to john@company.com")
+
+	for _, result := range results {
+		assert.Contains(t, result.Recipients, "john@company.com")
+	}
+
 	// Test filter by has attachments
-	results, err = db.SearchEmailsWithFilters("", "", true, "", "", 10)
+	results, err = db.SearchEmailsWithFilters("", "", "", true, "", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 2, "Should find 2 emails with attachments")
 
@@ -260,12 +284,17 @@ func TestSearchEmailsWithFilters(t *testing.T) {
 	}
 
 	// Test combined filters (sender + attachments)
-	results, err = db.SearchEmailsWithFilters("", "alice@test.com", true, "", "", 10)
+	results, err = db.SearchEmailsWithFilters("", "alice@test.com", "", true, "", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 2, "Should find 2 emails from alice with attachments")
 
+	// Test combined filters (recipient + attachments)
+	results, err = db.SearchEmailsWithFilters("", "", "john@company.com", true, "", "", 10)
+	require.NoError(t, err)
+	assert.Len(t, results, 2, "Should find 2 emails to john with attachments")
+
 	// Test search query with filter
-	results, err = db.SearchEmailsWithFilters("Attachment", "", true, "", "", 10)
+	results, err = db.SearchEmailsWithFilters("Attachment", "", "", true, "", "", 10)
 	require.NoError(t, err)
 	assert.Greater(t, len(results), 0, "Should find emails matching query and filter")
 

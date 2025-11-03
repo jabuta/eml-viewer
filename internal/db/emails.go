@@ -445,3 +445,68 @@ func (db *DB) GetUniqueSenders(limit int) ([]string, error) {
 
 	return senders, nil
 }
+
+// GetUniqueRecipients retrieves a list of unique recipient email addresses
+// Recipients are stored as comma-separated values, so this function splits them
+// and returns unique addresses ordered by frequency
+func (db *DB) GetUniqueRecipients(limit int) ([]string, error) {
+	rows, err := db.Query(`
+		SELECT recipients
+		FROM emails
+		WHERE recipients != ''
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recipients: %w", err)
+	}
+	defer rows.Close()
+
+	// Count occurrences of each recipient
+	recipientCount := make(map[string]int)
+	for rows.Next() {
+		var recipients string
+		if err := rows.Scan(&recipients); err != nil {
+			return nil, fmt.Errorf("failed to scan recipients: %w", err)
+		}
+
+		// Split by comma and trim whitespace
+		parts := strings.Split(recipients, ",")
+		for _, part := range parts {
+			recipient := strings.TrimSpace(part)
+			if recipient != "" {
+				recipientCount[recipient]++
+			}
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating recipients: %w", err)
+	}
+
+	// Convert map to sorted slice
+	type recipientFreq struct {
+		email string
+		count int
+	}
+	var freqs []recipientFreq
+	for email, count := range recipientCount {
+		freqs = append(freqs, recipientFreq{email, count})
+	}
+
+	// Sort by count (descending) then by email (ascending)
+	for i := 0; i < len(freqs); i++ {
+		for j := i + 1; j < len(freqs); j++ {
+			if freqs[j].count > freqs[i].count ||
+				(freqs[j].count == freqs[i].count && freqs[j].email < freqs[i].email) {
+				freqs[i], freqs[j] = freqs[j], freqs[i]
+			}
+		}
+	}
+
+	// Take top N
+	result := make([]string, 0, limit)
+	for i := 0; i < len(freqs) && i < limit; i++ {
+		result = append(result, freqs[i].email)
+	}
+
+	return result, nil
+}

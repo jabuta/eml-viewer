@@ -59,6 +59,14 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 		senders = []string{}
 	}
 
+	// Get unique recipients for filter autocomplete
+	recipients, err := h.db.GetUniqueRecipients(100)
+	if err != nil {
+		log.Printf("Failed to load recipients: %v", err)
+		// Don't fail the whole page, just use empty list
+		recipients = []string{}
+	}
+
 	// Prepare template data
 	data := map[string]interface{}{
 		"PageTitle": "Email List - EML Viewer",
@@ -67,6 +75,7 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 		},
 		"Emails":     emails,
 		"Senders":    senders,
+		"Recipients": recipients,
 		"HasMore":    hasMore,
 		"NextOffset": offset + limit,
 	}
