@@ -169,15 +169,29 @@ EML Viewer
 
 ## Configuration
 
-The application stores its database and configuration in:
-- **Windows**: `C:\Users\<username>\.eml-viewer\`
-- **macOS/Linux**: `~/.eml-viewer/`
+The application is **fully portable** and stores all data relative to the executable location:
+
+```
+your-folder/
+├── eml-viewer(.exe)      # Application executable
+├── db/
+│   └── emails.db         # SQLite database (created automatically)
+└── emails/               # Your .eml files go here
+    └── *.eml
+```
+
+This means you can:
+- ✅ Run from a USB thumbdrive
+- ✅ Move the entire folder anywhere
+- ✅ Transfer between different computers
+- ✅ No installation required
+- ✅ No files left on the host system
 
 ### Default Settings
 
 - **Server Port**: 8080
-- **Email Folder**: `./emails`
-- **Database**: `~/.eml-viewer/emails.db`
+- **Email Folder**: `./emails` (relative to executable)
+- **Database**: `./db/emails.db` (relative to executable)
 
 ## Testing
 
