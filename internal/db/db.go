@@ -21,8 +21,10 @@ func Open(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	// Open SQLite database
-	sqlDB, err := sql.Open("sqlite", dbPath)
+	// Open SQLite database with time format pragma
+	// The _time_format=sqlite parameter tells the driver to parse RFC3339 timestamps
+	dsn := dbPath + "?_time_format=sqlite"
+	sqlDB, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

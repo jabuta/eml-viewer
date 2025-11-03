@@ -17,6 +17,7 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 	// Get recent emails
 	emails, err := h.db.ListEmails(50, 0)
 	if err != nil {
+		log.Printf("Failed to load emails: %v", err)
 		http.Error(w, "Failed to load emails", http.StatusInternalServerError)
 		return
 	}

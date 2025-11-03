@@ -2,9 +2,71 @@ package db
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
+	"strings"
 	"time"
 )
+
+// NullTime is a custom type that handles both string and time.Time from SQLite
+type NullTime struct {
+	Time  time.Time
+	Valid bool
+}
+
+// Scan implements sql.Scanner for NullTime
+func (nt *NullTime) Scan(value interface{}) error {
+	if value == nil {
+		nt.Time, nt.Valid = time.Time{}, false
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		nt.Time, nt.Valid = v, true
+		return nil
+	case string:
+		// Try multiple time formats
+		formats := []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			// SQLite timestamp formats including Go's time.String() format
+			"2006-01-02 15:04:05.999999999 -0700 -0700", // Go's time.String() format with duplicate timezone
+			"2006-01-02 15:04:05 -0700 -0700",
+			"2006-01-02 15:04:05.999999999 -0700 MST",
+			"2006-01-02 15:04:05 -0700 MST",
+			"2006-01-02 15:04:05.999999999 -0700",
+			"2006-01-02 15:04:05 -0700",
+			"2006-01-02 15:04:05.999999999",
+			"2006-01-02 15:04:05",
+			"2006-01-02T15:04:05Z",
+			time.RFC1123Z,
+			time.RFC1123,
+		}
+
+		var t time.Time
+		var err error
+		for _, format := range formats {
+			t, err = time.Parse(format, v)
+			if err == nil {
+				nt.Time, nt.Valid = t, true
+				return nil
+			}
+		}
+
+		return fmt.Errorf("failed to parse time string %q: %w", v, err)
+	default:
+		return fmt.Errorf("unsupported Scan type for NullTime: %T", value)
+	}
+}
+
+// Value implements driver.Valuer for NullTime
+func (nt NullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
+}
 
 // Email represents an email record in the database
 type Email struct {
@@ -17,15 +79,15 @@ type Email struct {
 	Recipients      string
 	CC              string
 	BCC             string
-	Date            sql.NullTime
+	Date            NullTime
 	BodyText        string
 	BodyHTML        string
 	HasAttachments  bool
 	AttachmentCount int
 	RawHeaders      string
 	FileSize        int64
-	IndexedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
+	IndexedAt       NullTime
+	UpdatedAt       NullTime
 }
 
 // GetDate returns the date as time.Time, or zero time if NULL
@@ -203,4 +265,150 @@ func (db *DB) GetAttachmentByID(id int64) (*Attachment, error) {
 		return nil, fmt.Errorf("failed to get attachment: %w", err)
 	}
 	return att, nil
+}
+
+// InsertEmailsBatch inserts multiple emails in a single transaction
+// Returns the inserted email IDs in the same order as the input
+func (db *DB) InsertEmailsBatch(emails []*Email) ([]int64, error) {
+	if len(emails) == 0 {
+		return []int64{}, nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO emails (
+			file_path, message_id, subject, sender, sender_name,
+			recipients, cc, bcc, date, body_text, body_html,
+			has_attachments, attachment_count, raw_headers, file_size
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	ids := make([]int64, 0, len(emails))
+	for _, email := range emails {
+		result, err := stmt.Exec(
+			email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
+			email.Recipients, email.CC, email.BCC, email.Date, email.BodyText, email.BodyHTML,
+			email.HasAttachments, email.AttachmentCount, email.RawHeaders, email.FileSize,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert email %s: %w", email.FilePath, err)
+		}
+
+		id, err := result.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last insert id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return ids, nil
+}
+
+// InsertAttachmentsBatch inserts multiple attachments in a single transaction
+func (db *DB) InsertAttachmentsBatch(attachments []*Attachment) error {
+	if len(attachments) == 0 {
+		return nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO attachments (email_id, filename, content_type, size, data)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, att := range attachments {
+		_, err := stmt.Exec(att.EmailID, att.Filename, att.ContentType, att.Size, att.Data)
+		if err != nil {
+			return fmt.Errorf("failed to insert attachment %s: %w", att.Filename, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// EmailsExistBatch checks which emails already exist in the database
+// Returns a map of file paths to their existence status
+func (db *DB) EmailsExistBatch(filePaths []string) (map[string]bool, error) {
+	if len(filePaths) == 0 {
+		return map[string]bool{}, nil
+	}
+
+	result := make(map[string]bool, len(filePaths))
+
+	// SQLite has a limit on the number of variables in a query (default 999)
+	// Process in chunks if necessary
+	chunkSize := 500
+	for i := 0; i < len(filePaths); i += chunkSize {
+		end := i + chunkSize
+		if end > len(filePaths) {
+			end = len(filePaths)
+		}
+		chunk := filePaths[i:end]
+
+		if err := db.checkExistenceChunk(chunk, result); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// checkExistenceChunk checks a chunk of file paths for existence
+func (db *DB) checkExistenceChunk(filePaths []string, result map[string]bool) error {
+	if len(filePaths) == 0 {
+		return nil
+	}
+
+	// Build query with placeholders
+	query := "SELECT file_path FROM emails WHERE file_path IN (?" +
+		strings.Repeat(",?", len(filePaths)-1) + ")"
+
+	// Convert file paths to interface slice
+	args := make([]interface{}, len(filePaths))
+	for i, fp := range filePaths {
+		args[i] = fp
+		result[fp] = false // Initialize all as false
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to check email existence: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var filePath string
+		if err := rows.Scan(&filePath); err != nil {
+			return fmt.Errorf("failed to scan file path: %w", err)
+		}
+		result[filePath] = true
+	}
+
+	return rows.Err()
 }

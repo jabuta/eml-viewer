@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
@@ -209,7 +208,7 @@ func TestNullDateHandling(t *testing.T) {
 
 	// Create email with NULL date
 	email := CreateTestEmail("Test Subject", "sender@test.com", "Body")
-	email.Date = sql.NullTime{Valid: false} // NULL date
+	email.Date = NullTime{Valid: false} // NULL date
 
 	id, err := db.InsertEmail(email)
 	require.NoError(t, err)
@@ -225,7 +224,7 @@ func TestNullDateHandling(t *testing.T) {
 	// Create email with valid date
 	email2 := CreateTestEmail("Test Subject 2", "sender2@test.com", "Body 2")
 	testDate := time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC)
-	email2.Date = sql.NullTime{Time: testDate, Valid: true}
+	email2.Date = NullTime{Time: testDate, Valid: true}
 
 	id2, err := db.InsertEmail(email2)
 	require.NoError(t, err)

@@ -1,15 +1,14 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 )
 
-// NewNullTime creates a sql.NullTime from a time.Time
-func NewNullTime(t time.Time) sql.NullTime {
-	return sql.NullTime{Time: t, Valid: true}
+// NewNullTime creates a NullTime from a time.Time
+func NewNullTime(t time.Time) NullTime {
+	return NullTime{Time: t, Valid: true}
 }
 
 // SetupTestDB creates an in-memory SQLite database for testing
@@ -44,7 +43,7 @@ func CreateTestEmail(subject, sender, body string) *Email {
 		Recipients:      "recipient@test.com",
 		CC:              "",
 		BCC:             "",
-		Date:            sql.NullTime{Time: time.Now(), Valid: true},
+		Date:            NullTime{Time: time.Now(), Valid: true},
 		BodyText:        body,
 		BodyHTML:        "",
 		HasAttachments:  false,
@@ -72,7 +71,7 @@ func InsertTestEmails(t *testing.T, db *DB, emails []*Email) []*Email {
 // CreateTestEmailWithDate creates a test email with a specific date
 func CreateTestEmailWithDate(subject, sender, body string, date time.Time) *Email {
 	email := CreateTestEmail(subject, sender, body)
-	email.Date = sql.NullTime{Time: date, Valid: true}
+	email.Date = NullTime{Time: date, Valid: true}
 	return email
 }
 
