@@ -1,0 +1,139 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
+	"syscall"
+	"time"
+
+	"github.com/felo/eml-viewer/internal/config"
+	"github.com/felo/eml-viewer/internal/db"
+	"github.com/felo/eml-viewer/internal/handlers"
+	"github.com/felo/eml-viewer/internal/indexer"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+)
+
+func main() {
+	// Load configuration
+	cfg := config.Default()
+
+	// Open database
+	database, err := db.Open(cfg.DBPath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	log.Printf("Database opened at: %s", cfg.DBPath)
+
+	// Check if emails directory exists
+	if _, err := os.Stat(cfg.EmailsPath); os.IsNotExist(err) {
+		log.Printf("Emails directory not found: %s", cfg.EmailsPath)
+		log.Printf("Creating directory...")
+		if err := os.MkdirAll(cfg.EmailsPath, 0755); err != nil {
+			log.Fatalf("Failed to create emails directory: %v", err)
+		}
+		log.Printf("Created emails directory at: %s", cfg.EmailsPath)
+		log.Printf("Please place your .eml files in this directory and restart the application")
+	} else {
+		// Index emails on startup
+		log.Printf("Indexing emails from: %s", cfg.EmailsPath)
+		idx := indexer.NewIndexer(database, cfg.EmailsPath, true)
+		result, err := idx.IndexAll()
+		if err != nil {
+			log.Printf("Warning: Indexing failed: %v", err)
+		} else {
+			log.Printf("Indexing complete: %d new, %d skipped, %d failed",
+				result.NewIndexed, result.Skipped, result.Failed)
+		}
+	}
+
+	// Initialize handlers
+	h := handlers.New(database, cfg)
+
+	// Set up router
+	r := chi.NewRouter()
+
+	// Middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Compress(5))
+
+	// Routes
+	r.Get("/", h.Index)
+	r.Get("/emails/{id}", h.ViewEmail)
+	r.Get("/search", h.Search)
+	r.Get("/attachments/{id}/download", h.DownloadAttachment)
+	r.Post("/scan", h.Scan)
+
+	// Static files (will be added later with embedded assets)
+	// For now, serve from filesystem
+	workDir, _ := os.Getwd()
+	filesDir := http.Dir(workDir + "/web/static")
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(filesDir)))
+
+	// Create server
+	srv := &http.Server{
+		Addr:         cfg.Address(),
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("Starting server on %s", cfg.URL())
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// Auto-open browser
+	time.Sleep(500 * time.Millisecond) // Give server time to start
+	if err := openBrowser(cfg.URL()); err != nil {
+		log.Printf("Failed to open browser: %v", err)
+		log.Printf("Please open your browser and navigate to: %s", cfg.URL())
+	} else {
+		log.Printf("Browser opened at: %s", cfg.URL())
+	}
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	<-sigChan
+	log.Println("\nShutting down gracefully...")
+
+	// Graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+
+	log.Println("Server stopped")
+}
+
+// openBrowser opens the default browser to the specified URL
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+
+	return cmd.Start()
+}

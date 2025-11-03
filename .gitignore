@@ -1,0 +1,37 @@
+# Binaries
+eml-viewer
+eml-viewer.exe
+eml-viewer-*
+*.exe
+
+# Build output
+dist/
+build/icons/
+
+# Email data
+emails/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+.eml-viewer/
+
+# Go
+*.test
+*.out
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
