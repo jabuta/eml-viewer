@@ -17,7 +17,7 @@ type Config struct {
 func Default() *Config {
 	return &Config{
 		Host:       "localhost",
-		Port:       "8080",
+		Port:       "8787",
 		DBPath:     "./db/emails.db", // Database in ./db folder
 		EmailsPath: "./emails",       // Emails in ./emails folder
 	}

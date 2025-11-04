@@ -67,7 +67,7 @@ chmod +x eml-viewer
 
 The application will:
 1. Index all .eml files from the `emails` folder
-2. Start a local web server on `http://localhost:8080`
+2. Start a local web server on `http://localhost:8787`
 3. Automatically open your browser
 
 ## Usage
@@ -229,7 +229,7 @@ This means you can:
 
 ### Default Settings
 
-- **Server Port**: 8080
+- **Server Port**: 8787
 - **Email Folder**: `./emails` (relative to executable)
 - **Database**: `./db/emails.db` (relative to executable)
 
@@ -359,11 +359,11 @@ func TestYourFeature(t *testing.T) {
 
 ### Browser doesn't open automatically
 
-Manually navigate to: `http://localhost:8080`
+Manually navigate to: `http://localhost:8787`
 
 ### "Port already in use" error
 
-Another application is using port 8080. Either:
+Another application is using port 8787. Either:
 1. Stop the other application, or
 2. Modify the port in `internal/config/config.go` and rebuild
 
