@@ -61,6 +61,17 @@ func ParseEML(r io.Reader) (*ParsedEmail, error) {
 		parsed.MessageID = msgID
 	}
 
+	// In-Reply-To (for threading)
+	if inReplyTo := header.Get("In-Reply-To"); inReplyTo != "" {
+		parsed.InReplyTo = strings.TrimSpace(inReplyTo)
+	}
+
+	// References (for threading)
+	if references := header.Get("References"); references != "" {
+		// References can be space-separated Message-IDs
+		parsed.References = parseMessageIDList(references)
+	}
+
 	// Subject - decode MIME words
 	parsed.Subject = decodeMIMEWord(header.Get("Subject"))
 
@@ -169,4 +180,20 @@ func decodeMIMEWord(s string) string {
 		return s
 	}
 	return decoded
+}
+
+// parseMessageIDList parses a space-separated list of Message-IDs
+// Example: "<id1@example.com> <id2@example.com>" -> ["<id1@example.com>", "<id2@example.com>"]
+func parseMessageIDList(s string) []string {
+	var ids []string
+	// Message-IDs are enclosed in angle brackets < >
+	// Split by whitespace and filter out empty strings
+	parts := strings.Fields(s)
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			ids = append(ids, part)
+		}
+	}
+	return ids
 }

@@ -73,20 +73,22 @@ func (nt NullTime) Value() (driver.Value, error) {
 // Email represents an email record in the database (metadata only)
 // Full content (body_html, raw_headers, cc, bcc) is parsed from .eml file on-demand
 type Email struct {
-	ID              int64
-	FilePath        string
-	MessageID       string
-	Subject         string
-	Sender          string
-	SenderName      string
-	Recipients      string
-	Date            NullTime
-	BodyTextPreview string // First 10KB for FTS5 search only
-	HasAttachments  bool
-	AttachmentCount int
-	FileSize        int64
-	IndexedAt       NullTime
-	UpdatedAt       NullTime
+	ID               int64
+	FilePath         string
+	MessageID        string
+	InReplyTo        string // Message-ID of parent email (for threading)
+	ThreadReferences string // Comma-separated Message-IDs (conversation ancestry)
+	Subject          string
+	Sender           string
+	SenderName       string
+	Recipients       string
+	Date             NullTime
+	BodyTextPreview  string // First 10KB for FTS5 search only
+	HasAttachments   bool
+	AttachmentCount  int
+	FileSize         int64
+	IndexedAt        NullTime
+	UpdatedAt        NullTime
 }
 
 // GetDate returns the date as time.Time, or zero time if NULL
@@ -128,14 +130,14 @@ type Attachment struct {
 func (db *DB) InsertEmail(email *Email) (int64, error) {
 	result, err := db.Exec(`
 		INSERT INTO emails (
-			file_path, message_id, subject, sender, sender_name,
-			recipients, date, body_text_preview,
-			has_attachments, attachment_count, file_size
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			file_path, message_id, in_reply_to, thread_references,
+			subject, sender, sender_name, recipients, date,
+			body_text_preview, has_attachments, attachment_count, file_size
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
-		email.Recipients, email.Date, email.BodyTextPreview,
-		email.HasAttachments, email.AttachmentCount, email.FileSize,
+		email.FilePath, email.MessageID, email.InReplyTo, email.ThreadReferences,
+		email.Subject, email.Sender, email.SenderName, email.Recipients, email.Date,
+		email.BodyTextPreview, email.HasAttachments, email.AttachmentCount, email.FileSize,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert email: %w", err)
@@ -158,15 +160,15 @@ func (db *DB) EmailExists(filePath string) (bool, error) {
 func (db *DB) GetEmailByID(id int64) (*Email, error) {
 	email := &Email{}
 	err := db.QueryRow(`
-		SELECT id, file_path, message_id, subject, sender, sender_name,
-		       recipients, date, body_text_preview,
-		       has_attachments, attachment_count, file_size,
+		SELECT id, file_path, message_id, in_reply_to, thread_references,
+		       subject, sender, sender_name, recipients, date,
+		       body_text_preview, has_attachments, attachment_count, file_size,
 		       indexed_at, updated_at
 		FROM emails WHERE id = ?
 	`, id).Scan(
-		&email.ID, &email.FilePath, &email.MessageID, &email.Subject, &email.Sender, &email.SenderName,
-		&email.Recipients, &email.Date, &email.BodyTextPreview,
-		&email.HasAttachments, &email.AttachmentCount, &email.FileSize,
+		&email.ID, &email.FilePath, &email.MessageID, &email.InReplyTo, &email.ThreadReferences,
+		&email.Subject, &email.Sender, &email.SenderName, &email.Recipients, &email.Date,
+		&email.BodyTextPreview, &email.HasAttachments, &email.AttachmentCount, &email.FileSize,
 		&email.IndexedAt, &email.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -181,9 +183,9 @@ func (db *DB) GetEmailByID(id int64) (*Email, error) {
 // ListEmails retrieves the most recent emails with pagination (metadata only)
 func (db *DB) ListEmails(limit, offset int) ([]*Email, error) {
 	rows, err := db.Query(`
-		SELECT id, file_path, message_id, subject, sender, sender_name,
-		       recipients, date, body_text_preview,
-		       has_attachments, attachment_count, file_size,
+		SELECT id, file_path, message_id, in_reply_to, thread_references,
+		       subject, sender, sender_name, recipients, date,
+		       body_text_preview, has_attachments, attachment_count, file_size,
 		       indexed_at, updated_at
 		FROM emails
 		ORDER BY date DESC
@@ -198,9 +200,9 @@ func (db *DB) ListEmails(limit, offset int) ([]*Email, error) {
 	for rows.Next() {
 		email := &Email{}
 		err := rows.Scan(
-			&email.ID, &email.FilePath, &email.MessageID, &email.Subject, &email.Sender, &email.SenderName,
-			&email.Recipients, &email.Date, &email.BodyTextPreview,
-			&email.HasAttachments, &email.AttachmentCount, &email.FileSize,
+			&email.ID, &email.FilePath, &email.MessageID, &email.InReplyTo, &email.ThreadReferences,
+			&email.Subject, &email.Sender, &email.SenderName, &email.Recipients, &email.Date,
+			&email.BodyTextPreview, &email.HasAttachments, &email.AttachmentCount, &email.FileSize,
 			&email.IndexedAt, &email.UpdatedAt,
 		)
 		if err != nil {
@@ -298,10 +300,10 @@ func (db *DB) InsertEmailsBatch(emails []*Email) ([]int64, error) {
 
 	stmt, err := tx.Prepare(`
 		INSERT INTO emails (
-			file_path, message_id, subject, sender, sender_name,
-			recipients, date, body_text_preview,
-			has_attachments, attachment_count, file_size
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			file_path, message_id, in_reply_to, thread_references,
+			subject, sender, sender_name, recipients, date,
+			body_text_preview, has_attachments, attachment_count, file_size
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare statement: %w", err)
@@ -311,9 +313,9 @@ func (db *DB) InsertEmailsBatch(emails []*Email) ([]int64, error) {
 	ids := make([]int64, 0, len(emails))
 	for _, email := range emails {
 		result, err := stmt.Exec(
-			email.FilePath, email.MessageID, email.Subject, email.Sender, email.SenderName,
-			email.Recipients, email.Date, email.BodyTextPreview,
-			email.HasAttachments, email.AttachmentCount, email.FileSize,
+			email.FilePath, email.MessageID, email.InReplyTo, email.ThreadReferences,
+			email.Subject, email.Sender, email.SenderName, email.Recipients, email.Date,
+			email.BodyTextPreview, email.HasAttachments, email.AttachmentCount, email.FileSize,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert email %s: %w", email.FilePath, err)

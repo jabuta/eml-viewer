@@ -239,17 +239,19 @@ func (idx *Indexer) parseWorker(wg *sync.WaitGroup, fileChan <-chan string, resu
 		}
 
 		email := &db.Email{
-			FilePath:        filePath,
-			MessageID:       parsed.MessageID,
-			Subject:         parsed.Subject,
-			Sender:          parsed.Sender,
-			SenderName:      parsed.SenderName,
-			Recipients:      strings.Join(parsed.Recipients, ", "),
-			Date:            db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
-			BodyTextPreview: bodyTextPreview,
-			HasAttachments:  len(parsed.Attachments) > 0,
-			AttachmentCount: len(parsed.Attachments),
-			FileSize:        fileInfo.Size(),
+			FilePath:         filePath,
+			MessageID:        parsed.MessageID,
+			InReplyTo:        parsed.InReplyTo,
+			ThreadReferences: strings.Join(parsed.References, ", "),
+			Subject:          parsed.Subject,
+			Sender:           parsed.Sender,
+			SenderName:       parsed.SenderName,
+			Recipients:       strings.Join(parsed.Recipients, ", "),
+			Date:             db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
+			BodyTextPreview:  bodyTextPreview,
+			HasAttachments:   len(parsed.Attachments) > 0,
+			AttachmentCount:  len(parsed.Attachments),
+			FileSize:         fileInfo.Size(),
 		}
 
 		// Send to batch writer
@@ -435,17 +437,19 @@ func (idx *Indexer) indexAllSequential() (*IndexResult, error) {
 		}
 
 		email := &db.Email{
-			FilePath:        filePath,
-			MessageID:       parsed.MessageID,
-			Subject:         parsed.Subject,
-			Sender:          parsed.Sender,
-			SenderName:      parsed.SenderName,
-			Recipients:      strings.Join(parsed.Recipients, ", "),
-			Date:            db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
-			BodyTextPreview: bodyTextPreview,
-			HasAttachments:  len(parsed.Attachments) > 0,
-			AttachmentCount: len(parsed.Attachments),
-			FileSize:        fileInfo.Size(),
+			FilePath:         filePath,
+			MessageID:        parsed.MessageID,
+			InReplyTo:        parsed.InReplyTo,
+			ThreadReferences: strings.Join(parsed.References, ", "),
+			Subject:          parsed.Subject,
+			Sender:           parsed.Sender,
+			SenderName:       parsed.SenderName,
+			Recipients:       strings.Join(parsed.Recipients, ", "),
+			Date:             db.NullTime{Time: parsed.Date, Valid: !parsed.Date.IsZero()},
+			BodyTextPreview:  bodyTextPreview,
+			HasAttachments:   len(parsed.Attachments) > 0,
+			AttachmentCount:  len(parsed.Attachments),
+			FileSize:         fileInfo.Size(),
 		}
 
 		// Insert email

@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS emails (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_path TEXT UNIQUE NOT NULL,
     message_id TEXT,
+    in_reply_to TEXT,        -- Message-ID of parent email (for threading)
+    thread_references TEXT,  -- Comma-separated Message-IDs (conversation ancestry)
     subject TEXT,
     sender TEXT NOT NULL,
     sender_name TEXT,
@@ -73,6 +75,8 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date DESC);
 CREATE INDEX IF NOT EXISTS idx_emails_sender ON emails(sender);
 CREATE INDEX IF NOT EXISTS idx_emails_file_path ON emails(file_path);
+CREATE INDEX IF NOT EXISTS idx_emails_message_id ON emails(message_id);
+CREATE INDEX IF NOT EXISTS idx_emails_in_reply_to ON emails(in_reply_to);
 CREATE INDEX IF NOT EXISTS idx_attachments_email_id ON attachments(email_id);
 `
 

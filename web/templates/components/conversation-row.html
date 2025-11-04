@@ -1,0 +1,185 @@
+{{define "conversation-row"}} {{/* Component for displaying a conversation in
+the list with expand/collapse */}}
+<div class="conversation-container mb-2" data-conversation-id="{{.Email.ID}}">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <!-- Root email (always visible) -->
+        <div class="p-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <!-- Expand/Collapse button and Subject -->
+                    <div class="flex items-start">
+                        {{if gt .ReplyCount 0}}
+                        <button
+                            onclick="toggleConversation('{{.Email.ID}}')"
+                            class="mr-2 mt-1 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                            id="toggle-btn-{{.Email.ID}}"
+                        >
+                            <svg
+                                class="w-5 h-5 transform transition-transform"
+                                id="toggle-icon-{{.Email.ID}}"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M9 5l7 7-7 7"
+                                />
+                            </svg>
+                        </button>
+                        {{end}}
+
+                        <div class="flex-1 min-w-0">
+                            <a
+                                href="/email/{{.Email.ID}}"
+                                class="block max-w-full overflow-hidden"
+                            >
+                                <h3
+                                    class="text-lg font-semibold text-gray-900 hover:text-blue-600 truncate mb-1"
+                                >
+                                    {{if .Email.Subject}} {{.Email.Subject}}
+                                    {{else}}
+                                    <span class="text-gray-400 italic"
+                                        >(No Subject)</span
+                                    >
+                                    {{end}}
+                                </h3>
+                            </a>
+
+                            <!-- From -->
+                            <p class="text-sm text-gray-600 mb-2">
+                                <span class="font-medium">
+                                    {{if .Email.SenderName}}
+                                    {{.Email.SenderName}} {{else}}
+                                    {{.Email.Sender}} {{end}}
+                                </span>
+                                {{if .Email.SenderName}}
+                                <span class="text-gray-400"
+                                    >&lt;{{.Email.Sender}}&gt;</span
+                                >
+                                {{end}}
+                            </p>
+
+                            <!-- Snippet -->
+                            {{if .Email.BodyTextPreview}}
+                            <p
+                                class="text-sm text-gray-500 line-clamp-2 break-words overflow-hidden"
+                            >
+                                {{.Email.BodyTextPreview}}
+                            </p>
+                            {{end}} {{/* Reply count badge */}} {{if gt
+                            .ReplyCount 0}}
+                            <div
+                                class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                                <svg
+                                    class="w-3 h-3 mr-1"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                    />
+                                </svg>
+                                {{.ReplyCount}} {{if eq .ReplyCount
+                                1}}reply{{else}}replies{{end}}
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ml-4 flex-shrink-0 text-right">
+                    <!-- Date -->
+                    <p class="text-sm text-gray-500 mb-2">
+                        {{.Email.GetDate.Format "Jan 2, 2006"}}
+                    </p>
+                    <p class="text-xs text-gray-400">
+                        {{.Email.GetDate.Format "3:04 PM"}}
+                    </p>
+
+                    <!-- Attachment indicator -->
+                    {{if .Email.HasAttachments}}
+                    <div
+                        class="mt-2 flex items-center justify-end text-xs text-gray-500"
+                    >
+                        <svg
+                            class="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                            />
+                        </svg>
+                        {{.Email.AttachmentCount}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Threaded replies (initially hidden) -->
+        {{if gt .ReplyCount 0}}
+        <div
+            id="conversation-thread-{{.Email.ID}}"
+            class="hidden border-t border-gray-200 bg-gray-50 p-4"
+            hx-get="/conversation/{{.Email.ID}}/thread"
+            hx-trigger="load"
+            hx-swap="innerHTML"
+        >
+            <!-- Thread will be loaded here via HTMX when expanded -->
+            <div class="text-center text-sm text-gray-500">
+                <svg
+                    class="animate-spin h-5 w-5 mx-auto mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                    ></circle>
+                    <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                </svg>
+                Loading conversation...
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+    function toggleConversation(emailId) {
+        const thread = document.getElementById(
+            "conversation-thread-" + emailId,
+        );
+        const icon = document.getElementById("toggle-icon-" + emailId);
+
+        if (thread.classList.contains("hidden")) {
+            thread.classList.remove("hidden");
+            icon.classList.add("rotate-90");
+        } else {
+            thread.classList.add("hidden");
+            icon.classList.remove("rotate-90");
+        }
+    }
+</script>
+{{end}}

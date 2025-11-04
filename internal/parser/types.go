@@ -5,6 +5,8 @@ import "time"
 // ParsedEmail represents a parsed email with all its components
 type ParsedEmail struct {
 	MessageID   string
+	InReplyTo   string   // Message-ID of the email this is replying to
+	References  []string // List of Message-IDs in the conversation thread
 	Subject     string
 	Sender      string
 	SenderName  string

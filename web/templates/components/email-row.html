@@ -25,11 +25,15 @@
 
             <!-- Snippet (use search snippet if available, otherwise body text preview) -->
             {{if .Snippet}}
-            <p class="text-sm text-gray-500 line-clamp-2">
+            <p
+                class="text-sm text-gray-500 line-clamp-2 break-words overflow-hidden"
+            >
                 {{.Snippet | html}}
             </p>
             {{else if .BodyTextPreview}}
-            <p class="text-sm text-gray-500 line-clamp-2">
+            <p
+                class="text-sm text-gray-500 line-clamp-2 break-words overflow-hidden"
+            >
                 {{.BodyTextPreview}}
             </p>
             {{end}}

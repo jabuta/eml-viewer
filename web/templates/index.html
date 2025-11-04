@@ -36,6 +36,27 @@
                 />
             </div>
             <button
+                onclick="toggleViewMode()"
+                id="view-toggle-btn"
+                class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                title="Toggle between flat and threaded view"
+            >
+                <svg
+                    class="w-5 h-5 inline-block mr-2 -mt-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 7h12M8 12h12m-12 5h12M3 7h.01M3 12h.01M3 17h.01"
+                    />
+                </svg>
+                <span id="view-mode-text">Threaded</span>
+            </button>
+            <button
                 onclick="document.getElementById('search-input').value = ''; clearFilters(); document.getElementById('search-input').dispatchEvent(new Event('search'))"
                 class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
@@ -148,4 +169,41 @@
 <div id="email-counter" class="mt-8 text-center text-sm text-gray-500">
     Showing {{len .Emails}} of {{.Stats.TotalEmails}} emails
 </div>
-{{end}} {{template "footer" .}}
+{{end}}
+
+<script>
+    // Track current view mode (flat or threaded)
+    let viewMode = "flat"; // default to flat view
+
+    function toggleViewMode() {
+        const emailList = document.getElementById("email-list");
+        const viewModeText = document.getElementById("view-mode-text");
+        const loadMoreContainer = document.getElementById(
+            "load-more-container",
+        );
+
+        if (viewMode === "flat") {
+            // Switch to threaded view
+            viewMode = "threaded";
+            viewModeText.textContent = "Flat View";
+
+            // Load threaded view
+            htmx.ajax("GET", "/threaded", {
+                target: "#email-list",
+                swap: "innerHTML",
+            });
+        } else {
+            // Switch to flat view
+            viewMode = "flat";
+            viewModeText.textContent = "Threaded";
+
+            // Load flat view
+            htmx.ajax("GET", "/", {
+                target: "#email-list",
+                swap: "innerHTML",
+            });
+        }
+    }
+</script>
+
+{{template "footer" .}}

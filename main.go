@@ -96,6 +96,11 @@ func main() {
 	r.Get("/scan/progress", h.ScanProgressSSE)
 	r.Post("/shutdown", h.Shutdown)
 
+	// Conversation/threading routes
+	r.Get("/threaded", h.ListThreaded)
+	r.Get("/conversation/{id}", h.ViewFullConversation)
+	r.Get("/conversation/{id}/thread", h.ViewConversationThread)
+
 	// Static files from embedded assets
 	staticFS, err := fs.Sub(web.Assets, "static")
 	if err != nil {

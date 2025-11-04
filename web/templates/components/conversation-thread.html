@@ -1,0 +1,123 @@
+{{define "conversation-thread"}} {{/* Recursive template for displaying a nested
+conversation thread */}}
+<div
+    class="conversation-email {{if gt .ThreadDepth 0}}ml-4 border-l-2 border-gray-300 pl-4{{end}} max-w-full overflow-hidden"
+    data-depth="{{.ThreadDepth}}"
+>
+    <a
+        href="/email/{{.Email.ID}}"
+        class="block bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all {{if gt .ThreadDepth 0}}mt-2{{end}} max-w-full overflow-hidden"
+    >
+        <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+                {{/* Reply indicator for threaded emails */}} {{if gt
+                .ThreadDepth 0}}
+                <div class="flex items-center text-xs text-gray-500 mb-1">
+                    <svg
+                        class="w-3 h-3 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                        />
+                    </svg>
+                    <span>Reply</span>
+                </div>
+                {{end}}
+
+                <!-- Subject -->
+                <h3
+                    class="text-lg font-semibold text-gray-900 truncate mb-1 break-words overflow-hidden"
+                >
+                    {{if .Email.Subject}} {{.Email.Subject}} {{else}}
+                    <span class="text-gray-400 italic">(No Subject)</span>
+                    {{end}}
+                </h3>
+
+                <!-- From -->
+                <p class="text-sm text-gray-600 mb-2">
+                    <span class="font-medium">
+                        {{if .Email.SenderName}} {{.Email.SenderName}} {{else}}
+                        {{.Email.Sender}} {{end}}
+                    </span>
+                    {{if .Email.SenderName}}
+                    <span class="text-gray-400">&lt;{{.Email.Sender}}&gt;</span>
+                    {{end}}
+                </p>
+
+                <!-- Snippet -->
+                {{if .Email.BodyTextPreview}}
+                <p
+                    class="text-sm text-gray-500 line-clamp-2 break-words overflow-hidden"
+                >
+                    {{.Email.BodyTextPreview}}
+                </p>
+                {{end}} {{/* Show reply count for root emails */}} {{if and
+                .IsRootEmail (gt .ReplyCount 0)}}
+                <div
+                    class="mt-2 flex items-center text-xs text-blue-600 font-medium"
+                >
+                    <svg
+                        class="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                    </svg>
+                    <span
+                        >{{.ReplyCount}} {{if eq .ReplyCount
+                        1}}reply{{else}}replies{{end}}</span
+                    >
+                </div>
+                {{end}}
+            </div>
+
+            <div class="ml-4 flex-shrink-0 text-right">
+                <!-- Date -->
+                <p class="text-sm text-gray-500 mb-2">
+                    {{.Email.GetDate.Format "Jan 2, 2006"}}
+                </p>
+                <p class="text-xs text-gray-400">
+                    {{.Email.GetDate.Format "3:04 PM"}}
+                </p>
+
+                <!-- Attachment indicator -->
+                {{if .Email.HasAttachments}}
+                <div
+                    class="mt-2 flex items-center justify-end text-xs text-gray-500"
+                >
+                    <svg
+                        class="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                    </svg>
+                    {{.Email.AttachmentCount}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </a>
+
+    {{/* Recursively render child emails */}} {{if .Children}} {{range
+    .Children}} {{template "conversation-thread" .}} {{end}} {{end}}
+</div>
+{{end}}
