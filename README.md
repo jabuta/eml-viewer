@@ -128,9 +128,24 @@ go build -o eml-viewer
 ./eml-viewer
 ```
 
-### Cross-Compilation
+### Local Development Build
 
-Build for different platforms:
+For quick local builds during development:
+
+```bash
+# Simple build for your current platform
+go build -o eml-viewer
+
+# Or use the build script (builds all platforms)
+./build/build.sh
+
+# Build script with custom version
+./build/build.sh v1.2.0
+```
+
+### Cross-Compilation (Manual)
+
+Build for different platforms manually:
 
 ```bash
 # Windows
@@ -145,6 +160,31 @@ GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o eml-viewer-macos-apple
 # Linux
 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o eml-viewer-linux
 ```
+
+### Official Releases
+
+**Official releases are built automatically via GitHub Actions.**
+
+To create a new release:
+
+```bash
+# 1. Commit your changes
+git add .
+git commit -m "Prepare for release v1.2.0"
+git push
+
+# 2. Create and push a tag
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+GitHub Actions will automatically:
+- Build binaries for all platforms (Windows, macOS Intel, macOS ARM, Linux)
+- Generate SHA256 checksums
+- Create a GitHub Release with all binaries attached
+- Release will be available at: https://github.com/jabuta/eml-viewer/releases
+
+Users can download official releases directly from the GitHub Releases page.
 
 ## Architecture
 

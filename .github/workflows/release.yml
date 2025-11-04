@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on tags like v1.0.0, v1.1.0, etc.
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create dist directory
+        run: mkdir -p dist
+
+      - name: Build Windows AMD64
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/eml-viewer-windows-amd64.exe .
+          echo "✅ Built Windows AMD64"
+
+      - name: Build macOS Intel (AMD64)
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/eml-viewer-darwin-amd64 .
+          echo "✅ Built macOS Intel"
+
+      - name: Build macOS Apple Silicon (ARM64)
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/eml-viewer-darwin-arm64 .
+          echo "✅ Built macOS Apple Silicon"
+
+      - name: Build Linux AMD64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/eml-viewer-linux-amd64 .
+          echo "✅ Built Linux AMD64"
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          echo "✅ Generated SHA256SUMS"
+          cat SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/eml-viewer-windows-amd64.exe
+            dist/eml-viewer-darwin-amd64
+            dist/eml-viewer-darwin-arm64
+            dist/eml-viewer-linux-amd64
+            dist/SHA256SUMS
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "## 🎉 Release ${{ steps.version.outputs.VERSION }} Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Binaries:" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows AMD64: \`eml-viewer-windows-amd64.exe\`" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS Intel: \`eml-viewer-darwin-amd64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS Apple Silicon: \`eml-viewer-darwin-arm64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux AMD64: \`eml-viewer-linux-amd64\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 File Sizes:" >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/ | tail -n +2 | awk '{print "- " $9 ": " $5}' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY

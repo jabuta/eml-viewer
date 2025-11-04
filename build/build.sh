@@ -3,8 +3,12 @@ set -e
 
 # EML Viewer Build Script
 # Builds binaries for Windows, macOS, and Linux
+#
+# Usage:
+#   ./build/build.sh           # Uses default version v1.0.0
+#   ./build/build.sh v1.2.0    # Uses specified version
 
-VERSION="v1.0.0"
+VERSION="${1:-v1.0.0}"  # Use first argument or default to v1.0.0
 APP_NAME="eml-viewer"
 OUTPUT_DIR="dist"
 
