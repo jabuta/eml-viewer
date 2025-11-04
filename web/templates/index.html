@@ -187,7 +187,7 @@
             viewMode = "threaded";
             viewModeText.textContent = "Flat View";
 
-            // Load threaded view
+            // Load threaded view - returns only email rows
             htmx.ajax("GET", "/threaded", {
                 target: "#email-list",
                 swap: "innerHTML",
@@ -197,8 +197,9 @@
             viewMode = "flat";
             viewModeText.textContent = "Threaded";
 
-            // Load flat view
-            htmx.ajax("GET", "/", {
+            // Load flat view - use /search endpoint which returns only email rows
+            // Empty search returns all emails in flat format
+            htmx.ajax("GET", "/search", {
                 target: "#email-list",
                 swap: "innerHTML",
             });
