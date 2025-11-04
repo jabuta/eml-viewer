@@ -43,6 +43,12 @@ func Open(dbPath string) (*DB, error) {
 		// emailsPath will be set via SetEmailsPath after opening
 	}
 
+	// Enable SQLite performance optimizations
+	if err := db.enablePerformancePragmas(); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to enable performance pragmas: %w", err)
+	}
+
 	// Initialize schema
 	if err := db.initSchema(); err != nil {
 		sqlDB.Close()
@@ -102,6 +108,27 @@ func (db *DB) ResolveEmailPath(relativePath string) (string, error) {
 	}
 
 	return absResolved, nil
+}
+
+// enablePerformancePragmas sets SQLite PRAGMAs for optimal performance
+func (db *DB) enablePerformancePragmas() error {
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",    // Write-Ahead Logging for better concurrency
+		"PRAGMA synchronous=NORMAL",  // Faster writes, safe with WAL
+		"PRAGMA cache_size=-64000",   // 64MB cache (negative = KB)
+		"PRAGMA temp_store=MEMORY",   // Store temp tables in memory
+		"PRAGMA mmap_size=268435456", // 256MB memory-mapped I/O
+		"PRAGMA page_size=4096",      // Standard page size
+		"PRAGMA busy_timeout=5000",   // Wait 5s for locks
+	}
+
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			return fmt.Errorf("failed to execute %s: %w", pragma, err)
+		}
+	}
+
+	return nil
 }
 
 // initSchema creates all tables, indexes, and triggers

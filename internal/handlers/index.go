@@ -51,31 +51,17 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get unique senders for filter autocomplete
-	senders, err := h.db.GetUniqueSenders(100)
-	if err != nil {
-		log.Printf("Failed to load senders: %v", err)
-		// Don't fail the whole page, just use empty list
-		senders = []string{}
-	}
-
-	// Get unique recipients for filter autocomplete
-	recipients, err := h.db.GetUniqueRecipients(100)
-	if err != nil {
-		log.Printf("Failed to load recipients: %v", err)
-		// Don't fail the whole page, just use empty list
-		recipients = []string{}
-	}
-
 	// Prepare template data
+	// Note: Sender/recipient autocomplete data is now loaded lazily via API endpoints
+	// This eliminates expensive full-table scans on every page load
 	data := map[string]interface{}{
 		"PageTitle": "Email List - EML Viewer",
 		"Stats": map[string]interface{}{
 			"TotalEmails": count,
 		},
 		"Emails":     emails,
-		"Senders":    senders,
-		"Recipients": recipients,
+		"Senders":    []string{}, // Populated lazily via /api/autocomplete/senders
+		"Recipients": []string{}, // Populated lazily via /api/autocomplete/recipients
 		"HasMore":    hasMore,
 		"NextOffset": offset + limit,
 	}

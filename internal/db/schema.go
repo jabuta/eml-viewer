@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date DESC);
 CREATE INDEX IF NOT EXISTS idx_emails_sender ON emails(sender);
+CREATE INDEX IF NOT EXISTS idx_emails_sender_date ON emails(sender, date DESC); -- Composite index for grouped sender queries
 CREATE INDEX IF NOT EXISTS idx_emails_file_path ON emails(file_path);
 CREATE INDEX IF NOT EXISTS idx_emails_message_id ON emails(message_id);
 CREATE INDEX IF NOT EXISTS idx_emails_in_reply_to ON emails(in_reply_to);

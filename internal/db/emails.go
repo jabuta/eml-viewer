@@ -468,11 +468,21 @@ func (db *DB) GetUniqueSenders(limit int) ([]string, error) {
 // Recipients are stored as comma-separated values, so this function splits them
 // and returns unique addresses ordered by frequency
 func (db *DB) GetUniqueRecipients(limit int) ([]string, error) {
+	// Optimized: Only scan most recent emails to find common recipients
+	// This assumes recent emails have the most relevant recipient addresses
+	// Scans 10x the limit to ensure we get enough unique recipients
+	sampleSize := limit * 10
+	if sampleSize < 1000 {
+		sampleSize = 1000 // Minimum sample
+	}
+
 	rows, err := db.Query(`
 		SELECT recipients
 		FROM emails
 		WHERE recipients != ''
-	`)
+		ORDER BY date DESC
+		LIMIT ?
+	`, sampleSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recipients: %w", err)
 	}

@@ -104,6 +104,10 @@ func main() {
 	r.Get("/scan/progress", h.ScanProgressSSE)
 	r.Post("/shutdown", h.Shutdown)
 
+	// Autocomplete API endpoints for lazy-loading filter dropdowns
+	r.Get("/api/autocomplete/senders", h.AutocompleteSenders)
+	r.Get("/api/autocomplete/recipients", h.AutocompleteRecipients)
+
 	// Conversation/threading routes
 	r.Get("/threaded", h.ListThreaded)
 	r.Get("/conversation/{id}", h.ViewFullConversation)

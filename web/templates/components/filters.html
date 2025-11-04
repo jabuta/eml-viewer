@@ -32,9 +32,7 @@
                 hx-indicator="#search-spinner"
             />
             <datalist id="sender-list">
-                {{range .Senders}}
-                <option value="{{.}}"></option>
-                {{end}}
+                <!-- Populated lazily via JavaScript -->
             </datalist>
         </div>
 
@@ -59,9 +57,7 @@
                 hx-indicator="#search-spinner"
             />
             <datalist id="recipient-list">
-                {{range .Recipients}}
-                <option value="{{.}}"></option>
-                {{end}}
+                <!-- Populated lazily via JavaScript -->
             </datalist>
         </div>
 
@@ -132,6 +128,65 @@
 </div>
 
 <script>
+    // Lazy-load autocomplete data only when needed
+    let autocompleteLoaded = false;
+
+    function loadAutocompleteData() {
+        if (autocompleteLoaded) return;
+
+        // Load senders
+        fetch("/api/autocomplete/senders?limit=100")
+            .then((response) => response.json())
+            .then((senders) => {
+                const datalist = document.getElementById("sender-list");
+                senders.forEach((sender) => {
+                    const option = document.createElement("option");
+                    option.value = sender;
+                    datalist.appendChild(option);
+                });
+            })
+            .catch((err) => console.error("Failed to load senders:", err));
+
+        // Load recipients
+        fetch("/api/autocomplete/recipients?limit=100")
+            .then((response) => response.json())
+            .then((recipients) => {
+                const datalist = document.getElementById("recipient-list");
+                recipients.forEach((recipient) => {
+                    const option = document.createElement("option");
+                    option.value = recipient;
+                    datalist.appendChild(option);
+                });
+            })
+            .catch((err) => console.error("Failed to load recipients:", err));
+
+        autocompleteLoaded = true;
+    }
+
+    // Load autocomplete data when filter panel becomes visible
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (
+                mutation.target.classList &&
+                !mutation.target.classList.contains("hidden")
+            ) {
+                loadAutocompleteData();
+            }
+        });
+    });
+
+    // Start observing the filter panel's parent for visibility changes
+    document.addEventListener("DOMContentLoaded", () => {
+        const filterPanelParent =
+            document.getElementById("filter-panel")?.parentElement;
+        if (filterPanelParent) {
+            observer.observe(filterPanelParent, {
+                attributes: true,
+                attributeFilter: ["class"],
+            });
+        }
+    });
+
     function clearFilters() {
         // Clear all filter inputs
         document.getElementById("filter-sender").value = "";
