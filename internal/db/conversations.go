@@ -136,8 +136,10 @@ func (db *DB) BuildConversationTree(rootEmail *Email) (*ConversationEmail, error
 		ReplyCount:  0,
 	}
 
-	// Recursively build the tree
-	if err := db.buildConversationTreeRecursive(conv, 1); err != nil {
+	// Recursively build the tree with circular reference protection and max depth
+	visited := make(map[string]bool)
+	maxDepth := 50
+	if err := db.buildConversationTreeRecursive(conv, 1, visited, maxDepth); err != nil {
 		return nil, err
 	}
 
@@ -145,10 +147,23 @@ func (db *DB) BuildConversationTree(rootEmail *Email) (*ConversationEmail, error
 }
 
 // buildConversationTreeRecursive recursively builds the conversation tree
-func (db *DB) buildConversationTreeRecursive(parent *ConversationEmail, depth int) error {
+func (db *DB) buildConversationTreeRecursive(parent *ConversationEmail, depth int, visited map[string]bool, maxDepth int) error {
 	if parent.Email.MessageID == "" {
 		return nil // Can't find replies without a message ID
 	}
+
+	// Prevent infinite recursion from circular references
+	if visited[parent.Email.MessageID] {
+		return nil // Already processed, skip to prevent cycles
+	}
+
+	// Prevent excessive depth
+	if depth > maxDepth {
+		return nil // Max depth reached
+	}
+
+	// Mark as visited
+	visited[parent.Email.MessageID] = true
 
 	// Get direct replies to this email
 	replies, err := db.GetDirectReplies(parent.Email.MessageID)
@@ -167,7 +182,7 @@ func (db *DB) buildConversationTreeRecursive(parent *ConversationEmail, depth in
 		}
 
 		// Recursively build children for this reply
-		if err := db.buildConversationTreeRecursive(childConv, depth+1); err != nil {
+		if err := db.buildConversationTreeRecursive(childConv, depth+1, visited, maxDepth); err != nil {
 			return err
 		}
 
