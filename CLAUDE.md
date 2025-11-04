@@ -1,863 +1,334 @@
-# EML Viewer Project Plan
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-**Goal:** Build a cross-platform EML email viewer with search capabilities that works for non-technical users on Windows and macOS.
+EML Viewer is a **local-only** email viewer for .eml files with full-text search. It's designed to run from a USB drive or local directory with zero installation. The application is built with Go + HTMX + SQLite and uses embedded templates and static assets for true portability.
 
-**Stack:** Go + HTMX + Single Binary
+**Critical Context**: This is a **local thumbdrive application**, not a network-exposed service. Security priorities differ from typical web applications.
 
-### Architecture
-- **Backend:** Go 1.21+ with embedded SQLite
-- **Frontend:** HTMX + TailwindCSS (minimal JavaScript)
-- **Database:** SQLite with FTS5 full-text search
-- **Distribution:** Single binary (~10-20MB) per platform
-- **Deployment:** User downloads → double-click → browser opens
+## Build and Development Commands
 
-### Key Features
-- ✅ Recursive .eml file scanning from `./emails/*`
-- ✅ SQLite database with full-text search (FTS5)
-- ✅ Fuzzy search by sender, subject, recipients, date, body
-- ✅ Email visualization (HTML + text rendering)
-- ✅ Attachment extraction and download
-- ✅ Single binary distribution (no dependencies)
-- ✅ Auto-opens browser on startup
-- ✅ Cross-platform (Windows, macOS, Linux)
-
----
-
-## Technology Stack
-
-### Backend
-```
-- Go 1.21+
-- modernc.org/sqlite (pure Go SQLite, no CGo)
-- emersion/go-message (EML parsing)
-- net/http or github.com/go-chi/chi/v5 (routing)
-- html/template (templating)
-- embed.FS (embed frontend into binary)
-```
-
-### Frontend
-```
-- HTMX 1.9+ (dynamic HTML updates)
-- TailwindCSS 3.x (styling)
-- Alpine.js (optional, for small interactions)
-- DaisyUI or custom components
-```
-
-### Build Tools
-```
-- go build (single command compilation)
-- Cross-compilation: GOOS/GOARCH
-- Optional: UPX for compression
-```
-
----
-
-## Database Schema
-
-### Main Tables
-
-```sql
--- Main emails table
-CREATE TABLE emails (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_path TEXT UNIQUE NOT NULL,
-    message_id TEXT,
-    subject TEXT,
-    sender TEXT NOT NULL,
-    sender_name TEXT,
-    recipients TEXT,
-    cc TEXT,
-    bcc TEXT,
-    date DATETIME,
-    body_text TEXT,
-    body_html TEXT,
-    has_attachments BOOLEAN DEFAULT 0,
-    attachment_count INTEGER DEFAULT 0,
-    raw_headers TEXT,
-    file_size INTEGER,
-    indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Full-text search virtual table
-CREATE VIRTUAL TABLE emails_fts USING fts5(
-    subject,
-    sender,
-    sender_name,
-    recipients,
-    body_text,
-    content='emails',
-    content_rowid='id'
-);
-
--- Triggers to keep FTS in sync
-CREATE TRIGGER emails_ai AFTER INSERT ON emails BEGIN
-    INSERT INTO emails_fts(rowid, subject, sender, sender_name, recipients, body_text)
-    VALUES (new.id, new.subject, new.sender, new.sender_name, new.recipients, new.body_text);
-END;
-
-CREATE TRIGGER emails_ad AFTER DELETE ON emails BEGIN
-    DELETE FROM emails_fts WHERE rowid = old.id;
-END;
-
-CREATE TRIGGER emails_au AFTER UPDATE ON emails BEGIN
-    UPDATE emails_fts 
-    SET subject = new.subject,
-        sender = new.sender,
-        sender_name = new.sender_name,
-        recipients = new.recipients,
-        body_text = new.body_text
-    WHERE rowid = new.id;
-END;
-
--- Attachments table
-CREATE TABLE attachments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email_id INTEGER NOT NULL,
-    filename TEXT NOT NULL,
-    content_type TEXT,
-    size INTEGER,
-    data BLOB,
-    FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
-);
-
--- Settings table (for storing email folder path, preferences)
-CREATE TABLE settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes for performance
-CREATE INDEX idx_emails_date ON emails(date DESC);
-CREATE INDEX idx_emails_sender ON emails(sender);
-CREATE INDEX idx_emails_file_path ON emails(file_path);
-CREATE INDEX idx_attachments_email_id ON attachments(email_id);
-```
-
----
-
-## Project Structure
-
-```
-eml-viewer/
-├── main.go                      # Entry point, HTTP server setup
-├── go.mod                       # Go module dependencies
-├── go.sum                       # Dependency checksums
-├── claude.md                    # This file - project plan & progress
-├── README.md                    # User-facing documentation
-├── .gitignore
-│
-├── internal/
-│   ├── config/
-│   │   └── config.go           # App configuration
-│   │
-│   ├── db/
-│   │   ├── db.go               # SQLite connection & initialization
-│   │   ├── schema.go           # Database schema/migrations
-│   │   ├── emails.go           # Email CRUD operations
-│   │   └── search.go           # Search queries (FTS5)
-│   │
-│   ├── parser/
-│   │   ├── eml.go              # EML file parsing logic
-│   │   └── types.go            # Email data structures
-│   │
-│   ├── scanner/
-│   │   ├── scanner.go          # Recursive directory scanning
-│   │   └── watcher.go          # File system watching (optional)
-│   │
-│   └── handlers/
-│       ├── index.go            # Home page handler
-│       ├── search.go           # Search handler
-│       ├── email.go            # Email detail handler
-│       ├── settings.go         # Settings handler
-│       ├── scan.go             # Scan/index handler
-│       └── attachments.go      # Attachment download handler
-│
-├── web/
-│   ├── templates/
-│   │   ├── base.html           # Base layout (header, footer)
-│   │   ├── index.html          # Email list page
-│   │   ├── email.html          # Email detail page
-│   │   ├── settings.html       # Settings page
-│   │   ├── scan.html           # Scan progress page
-│   │   └── components/
-│   │       ├── email-row.html      # Email list item component
-│   │       ├── search-bar.html     # Search component
-│   │       ├── filters.html        # Filter components
-│   │       └── pagination.html     # Pagination component
-│   │
-│   └── static/
-│       ├── css/
-│       │   └── styles.css      # TailwindCSS + custom styles
-│       ├── js/
-│       │   └── app.js          # Minimal JS (HTMX extensions, Alpine)
-│       └── img/
-│           └── logo.svg        # App logo/icon
-│
-└── build/
-    ├── build.sh                # Build script for all platforms
-    └── icons/                  # App icons for different platforms
-```
-
----
-
-## Implementation Phases
-
-### Phase 1: Core Backend (MVP) ⏳
-**Goal:** Get basic email indexing working with SQLite
-
-**Tasks:**
-- [ ] Initialize Go module (`go mod init`)
-- [ ] Set up dependencies (modernc.org/sqlite, emersion/go-message)
-- [ ] Create database package (`internal/db/`)
-  - [ ] SQLite connection handling
-  - [ ] Schema creation (emails, attachments, settings tables)
-  - [ ] FTS5 virtual table setup
-  - [ ] Triggers for FTS sync
-- [ ] Create EML parser (`internal/parser/`)
-  - [ ] Parse email headers (from, to, subject, date)
-  - [ ] Extract plain text body
-  - [ ] Extract HTML body
-  - [ ] Parse attachments metadata (name, type, size)
-- [ ] Create directory scanner (`internal/scanner/`)
-  - [ ] Recursive .eml file discovery
-  - [ ] Progress tracking
-  - [ ] Handle errors gracefully
-- [ ] Implement indexing logic
-  - [ ] Read .eml files
-  - [ ] Parse and insert into database
-  - [ ] Skip already-indexed files
-  - [ ] Log progress
-- [ ] Basic HTTP server (`main.go`)
-  - [ ] Serve on localhost:8080
-  - [ ] Auto-open browser
-  - [ ] Graceful shutdown (Ctrl+C)
-
-**Deliverable:** CLI that scans folder, indexes emails, starts server
-
----
-
-### Phase 2: Basic Frontend ⏳
-**Goal:** Display emails in a simple web interface
-
-**Tasks:**
-- [ ] Set up HTML templates (`web/templates/`)
-  - [ ] Base layout (header, navigation, footer)
-  - [ ] Email list page
-  - [ ] Email detail page
-- [ ] Create handlers (`internal/handlers/`)
-  - [ ] Index handler: show email list
-  - [ ] Email detail handler: show single email
-- [ ] Embed static files
-  - [ ] Use `//go:embed` for templates and static files
-  - [ ] Serve static CSS/JS
-- [ ] Add TailwindCSS
-  - [ ] Include via CDN (for MVP)
-  - [ ] Basic responsive layout
-- [ ] Implement email list rendering
-  - [ ] Query 50 most recent emails
-  - [ ] Display: subject, sender, date, snippet
-  - [ ] Click → navigate to detail page
-- [ ] Implement email detail rendering
-  - [ ] Show full headers
-  - [ ] Display text body
-  - [ ] Display HTML body (in iframe, sandboxed)
-  - [ ] List attachments
-
-**Deliverable:** Working web interface to browse indexed emails
-
----
-
-### Phase 3: Search & Filters ⏳
-**Goal:** Implement fuzzy search with SQLite FTS5
-
-**Tasks:**
-- [ ] Implement FTS5 search queries (`internal/db/search.go`)
-  - [ ] Full-text search with MATCH
-  - [ ] Fuzzy matching with wildcards
-  - [ ] Result ranking
-  - [ ] Limit to 50 results
-- [ ] Create search handler (`internal/handlers/search.go`)
-  - [ ] Parse query parameters
-  - [ ] Execute FTS5 search
-  - [ ] Return HTML fragment (for HTMX)
-- [ ] Add HTMX search component
-  - [ ] Search input with debouncing
-  - [ ] hx-get to /search endpoint
-  - [ ] hx-target to update results
-  - [ ] Show "searching..." indicator
-- [ ] Implement filters
-  - [ ] Date range filter (from/to dates)
-  - [ ] Sender filter (dropdown or autocomplete)
-  - [ ] "Has attachments" checkbox
-  - [ ] Combine filters with search
-- [ ] Add search result highlighting
-  - [ ] Highlight matched terms in results
-  - [ ] Snippet generation with context
-- [ ] Pagination
-  - [ ] Limit to 50 results per page
-  - [ ] "Load more" button (HTMX)
-
-**Deliverable:** Fast, fuzzy search with filters
-
----
-
-### Phase 4: Email Rendering & Attachments ⏳
-**Goal:** Safely render HTML emails and handle attachments
-
-**Tasks:**
-- [ ] HTML email rendering
-  - [ ] Render in sandboxed iframe
-  - [ ] CSP headers to block external resources
-  - [ ] Fallback to text if no HTML
-- [ ] Text email display
-  - [ ] Preserve formatting (whitespace, line breaks)
-  - [ ] Make URLs clickable
-- [ ] Attachment handling
-  - [ ] Extract attachments during parsing
-  - [ ] Store in database (BLOB) or filesystem
-  - [ ] Create download endpoint (`/attachments/:id/download`)
-  - [ ] Stream files to browser
-- [ ] Attachment preview
-  - [ ] Image thumbnails (jpg, png, gif)
-  - [ ] PDF preview (optional, via PDF.js)
-  - [ ] Text file preview
-- [ ] Email headers display
-  - [ ] Show all headers (collapsible)
-  - [ ] Copy header values
-  - [ ] "View raw .eml" link
-
-**Deliverable:** Full email visualization with attachments
-
----
-
-### Phase 5: Polish & UX ⏳
-**Goal:** Make the app feel professional and easy to use
-
-**Tasks:**
-- [ ] Loading states
-  - [ ] Spinner during search
-  - [ ] Progress bar during indexing
-  - [ ] Skeleton loaders for email list
-- [ ] Error handling
-  - [ ] User-friendly error messages
-  - [ ] Toast notifications (Alpine.js)
-  - [ ] Retry logic for failed operations
-- [ ] Empty states
-  - [ ] "No emails found" message
-  - [ ] "No search results" with suggestions
-  - [ ] "Select a folder to get started"
-- [ ] Keyboard shortcuts
-  - [ ] `j/k` - Navigate email list
-  - [ ] `/` - Focus search
-  - [ ] `Esc` - Clear search
-  - [ ] `Enter` - Open selected email
-- [ ] Responsive design
-  - [ ] Mobile-friendly layout
-  - [ ] Touch-friendly buttons
-  - [ ] Hamburger menu for mobile
-- [ ] Dark mode
-  - [ ] Toggle button
-  - [ ] Save preference to database
-  - [ ] Use CSS variables for theming
-- [ ] Settings page
-  - [ ] Change email folder path
-  - [ ] Re-scan folder
-  - [ ] Clear database
-  - [ ] About/version info
-- [ ] Performance optimization
-  - [ ] Database query optimization
-  - [ ] Index usage verification
-  - [ ] Lazy loading for large email lists
-
-**Deliverable:** Polished, professional-feeling app
-
----
-
-### Phase 6: Distribution & Documentation ⏳
-**Goal:** Package for non-technical users
-
-**Tasks:**
-- [ ] Build scripts (`build/build.sh`)
-  - [ ] Cross-compile for Windows (amd64)
-  - [ ] Cross-compile for macOS (Intel + Apple Silicon)
-  - [ ] Cross-compile for Linux (amd64)
-  - [ ] Strip debug symbols (`-ldflags="-s -w"`)
-  - [ ] Optional: UPX compression
-- [ ] Create README.md
-  - [ ] Installation instructions
-  - [ ] Screenshots
-  - [ ] Features list
-  - [ ] Troubleshooting
-  - [ ] Build from source instructions
-- [ ] User documentation
-  - [ ] How to use search
-  - [ ] Keyboard shortcuts
-  - [ ] FAQ
-- [ ] Optional: System tray icon
-  - [ ] "Quit" option
-  - [ ] "Open in browser" option
-  - [ ] Status indicator
-- [ ] Optional: Auto-updater
-  - [ ] Check for updates on startup
-  - [ ] Download and apply updates
-  - [ ] Notify user of new version
-- [ ] Testing on multiple platforms
-  - [ ] Test on Windows 10/11
-  - [ ] Test on macOS (Intel + Apple Silicon)
-  - [ ] Test with various .eml files
-  - [ ] Test with large datasets (1000+ emails)
-
-**Deliverable:** Production-ready binaries with documentation
-
----
-
-## Technical Implementation Details
-
-### 1. Embedded Assets (Single Binary)
-
-```go
-package main
-
-import (
-    "embed"
-    "html/template"
-    "net/http"
-)
-
-//go:embed web/templates/* web/static/*
-var embeddedFiles embed.FS
-
-func main() {
-    // Parse templates
-    tmpl := template.Must(template.ParseFS(embeddedFiles, "web/templates/*.html"))
-    
-    // Serve static files
-    http.Handle("/static/", http.FileServer(http.FS(embeddedFiles)))
-    
-    // ... rest of server setup
-}
-```
-
-### 2. Auto-Open Browser
-
-```go
-import (
-    "os/exec"
-    "runtime"
-)
-
-func openBrowser(url string) error {
-    var cmd *exec.Cmd
-    switch runtime.GOOS {
-    case "darwin":
-        cmd = exec.Command("open", url)
-    case "windows":
-        cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-    default:
-        cmd = exec.Command("xdg-open", url)
-    }
-    return cmd.Start()
-}
-```
-
-### 3. HTMX Search Pattern
-
-```html
-<!-- Search input -->
-<input 
-    type="text" 
-    name="q"
-    hx-get="/search"
-    hx-trigger="keyup changed delay:300ms"
-    hx-target="#email-list"
-    hx-indicator="#search-spinner"
-    placeholder="Search emails..."
-    class="input input-bordered w-full"
-/>
-
-<span id="search-spinner" class="htmx-indicator">
-    Searching...
-</span>
-
-<!-- Results container -->
-<div id="email-list">
-    <!-- HTMX will swap results here -->
-</div>
-```
-
-### 4. FTS5 Fuzzy Search Query
-
-```go
-func SearchEmails(db *sql.DB, query string, limit int) ([]Email, error) {
-    // Build FTS5 MATCH query
-    sql := `
-        SELECT 
-            e.id, e.subject, e.sender, e.sender_name, 
-            e.date, e.body_text,
-            snippet(emails_fts, -1, '<mark>', '</mark>', '...', 32) as snippet
-        FROM emails e
-        JOIN emails_fts ON e.id = emails_fts.rowid
-        WHERE emails_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?
-    `
-    
-    // Add wildcards for fuzzy matching
-    // "john doe" -> "john* doe*"
-    terms := strings.Fields(query)
-    fuzzyTerms := make([]string, len(terms))
-    for i, term := range terms {
-        fuzzyTerms[i] = term + "*"
-    }
-    fuzzyQuery := strings.Join(fuzzyTerms, " ")
-    
-    rows, err := db.Query(sql, fuzzyQuery, limit)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    
-    var emails []Email
-    for rows.Next() {
-        var e Email
-        err := rows.Scan(
-            &e.ID, &e.Subject, &e.Sender, &e.SenderName,
-            &e.Date, &e.BodyText, &e.Snippet,
-        )
-        if err != nil {
-            return nil, err
-        }
-        emails = append(emails, e)
-    }
-    
-    return emails, nil
-}
-```
-
-### 5. Safe HTML Email Rendering
-
-```html
-<!-- Email detail template -->
-<div class="email-body">
-    {{if .BodyHTML}}
-        <!-- Sandboxed iframe for HTML emails -->
-        <iframe 
-            sandbox="allow-same-origin"
-            srcdoc="{{.BodyHTML}}"
-            class="w-full h-96 border"
-        ></iframe>
-    {{else}}
-        <!-- Plain text fallback -->
-        <pre class="whitespace-pre-wrap">{{.BodyText}}</pre>
-    {{end}}
-</div>
-```
-
-### 6. Graceful Shutdown
-
-```go
-func main() {
-    // ... setup server
-    
-    // Catch interrupt signals
-    sigChan := make(chan os.Signal, 1)
-    signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-    
-    go func() {
-        <-sigChan
-        fmt.Println("\nShutting down gracefully...")
-        db.Close()
-        os.Exit(0)
-    }()
-    
-    // Start server
-    log.Fatal(http.ListenAndServe(":8080", nil))
-}
-```
-
----
-
-## Build & Distribution
-
-### Build Commands
-
+### Build
 ```bash
-# Install dependencies
-go mod download
-
-# Run in development mode
-go run main.go
-
-# Build for current OS
+# Development build (current platform)
 go build -o eml-viewer
 
-# Build with smaller binary size
+# Production build with optimizations
 go build -ldflags="-s -w" -o eml-viewer
 
 # Cross-compile for all platforms
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/eml-viewer-windows-amd64.exe
-GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/eml-viewer-macos-intel
-GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/eml-viewer-macos-apple
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/eml-viewer-linux-amd64
-
-# Optional: Compress with UPX
-upx --best --lzma dist/eml-viewer-*
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o eml-viewer-windows.exe
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o eml-viewer-macos-intel
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o eml-viewer-macos-apple
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o eml-viewer-linux
 ```
 
-### Build Script (build/build.sh)
-
+### Testing
 ```bash
-#!/bin/bash
-set -e
+# Run all tests
+go test ./...
 
-VERSION="v1.0.0"
-PLATFORMS=("windows/amd64" "darwin/amd64" "darwin/arm64" "linux/amd64")
-OUTPUT_DIR="dist"
+# Run with verbose output
+go test -v ./...
 
-mkdir -p $OUTPUT_DIR
+# Run with coverage
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 
-for PLATFORM in "${PLATFORMS[@]}"; do
-    GOOS=${PLATFORM%/*}
-    GOARCH=${PLATFORM#*/}
-    OUTPUT_NAME="eml-viewer-${GOOS}-${GOARCH}"
-    
-    if [ $GOOS = "windows" ]; then
-        OUTPUT_NAME+=".exe"
-    fi
-    
-    echo "Building for $GOOS/$GOARCH..."
-    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o "$OUTPUT_DIR/$OUTPUT_NAME"
-    
-    echo "✓ Built $OUTPUT_NAME"
-done
+# Run specific package tests
+go test ./internal/parser/...
+go test ./internal/db/...
 
-echo "Build complete! Binaries in $OUTPUT_DIR/"
+# Run with race detection
+go test -race ./...
 ```
 
----
+### Running
+```bash
+# Default (scans ./emails, starts on port 8787)
+./eml-viewer
 
-## Dependencies (go.mod)
+# Specify custom paths
+./eml-viewer -scan /path/to/emails -port 8080
+```
 
+## Architecture
+
+### High-Level Design
+
+```
+┌─────────────────────────────────────────────┐
+│  main.go - Entry point and HTTP server      │
+│  - Embeds web assets (go:embed)             │
+│  - Chi router with middleware               │
+│  - Graceful shutdown handling               │
+└─────────────────────────────────────────────┘
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│  Scanner/Indexer │    │   HTTP Handlers  │
+│                  │    │                  │
+│  - Walk dir tree │    │  - Index view    │
+│  - Find .eml     │    │  - Email view    │
+│  - Queue parsing │    │  - Search        │
+│  - Batch insert  │    │  - Attachments   │
+└────────┬─────────┘    │  - Scan trigger  │
+         │              └────────┬─────────┘
+         ▼                       │
+┌──────────────────┐             │
+│   EML Parser     │             │
+│                  │             │
+│  - MIME parsing  │             │
+│  - Charset conv  │             │
+│  - HTML/Text     │             │
+│  - Attachments   │             │
+└────────┬─────────┘             │
+         │                       │
+         └───────────┬───────────┘
+                     ▼
+         ┌────────────────────────┐
+         │   SQLite Database      │
+         │                        │
+         │  - emails (metadata)   │
+         │  - emails_fts (FTS5)   │
+         │  - attachments (blobs) │
+         └────────────────────────┘
+```
+
+### Key Architectural Patterns
+
+**1. Metadata-Only Database Storage**
+- Database stores ONLY metadata (subject, sender, dates, file paths)
+- Full email content (HTML, attachments) parsed on-demand from .eml files
+- Reason: Keeps DB small, avoids data duplication, enables easy re-indexing
+
+**2. Embedded Assets for True Portability**
 ```go
-module github.com/yourusername/eml-viewer
+//go:embed web/templates web/static
+var embeddedFiles embed.FS
+```
+All HTML templates, CSS, and JavaScript are embedded in the binary. No external dependencies.
 
-go 1.21
+**3. Relative Path Storage**
+- Database stores RELATIVE paths to .eml files (e.g., `2023/5/email.eml`)
+- Paths resolved at runtime relative to configured `EmailsPath`
+- Enables moving entire folder structure without breaking references
 
-require (
-    modernc.org/sqlite v1.27.0              // Pure Go SQLite (no CGo)
-    github.com/emersion/go-message v0.17.0  // EML parsing
-    github.com/go-chi/chi/v5 v5.0.10        // HTTP routing (optional)
-)
+**4. Sandboxed HTML Email Rendering**
+- HTML emails served from separate endpoint `/email/{id}/html`
+- Rendered in iframe with `sandbox=""` attribute (blocks ALL scripts, plugins, forms)
+- CSP headers enforce `frame-src 'self'` policy
+- **Why not srcdoc**: Go templates HTML-escape ALL attribute values, including srcdoc, which strips HTML tags
+
+### Critical Code Paths
+
+**Email Display Flow:**
+```
+User clicks email → ViewEmail handler (email.go:36)
+  ↓
+Calls GetEmailWithFullContent(id)
+  ↓
+Reads file path from DB (relative path)
+  ↓
+ResolveEmailPath() → joins with EmailsPath
+  ↓
+ParseEMLFile() → parses .eml on-demand
+  ↓
+Template receives: Email (metadata) + BodyHTML + BodyText + Attachments
+  ↓
+Iframe loads from /email/{id}/html endpoint
+  ↓
+ViewEmailHTML handler (email.go:10) → serves raw HTML with security headers
 ```
 
----
+**Search Flow:**
+```
+User types query → Search handler
+  ↓
+SearchEmailsWithFiltersAndOffset() with FTS5
+  ↓
+Query split into terms → each term fuzzy matched with wildcards
+  ↓
+Returns: EmailSearchResult with highlighted snippets (<mark> tags)
+  ↓
+HTMX renders results without page reload
+```
 
-## User Experience Flow
+### Database Schema Key Points
 
-### First Run
-1. User downloads `eml-viewer.exe` (Windows) or `eml-viewer` (macOS)
-2. Double-click to run
-3. Binary starts HTTP server on `localhost:8080`
-4. Browser auto-opens to welcome page
-5. User clicks "Select Folder" → native folder picker appears
-6. User selects folder containing .eml files (e.g., `./emails/`)
-7. Indexing starts with progress bar
-8. When complete, redirects to email list
+**emails table:**
+- `file_path`: RELATIVE path (e.g., "2023/5/email.eml"), NEVER absolute
+- `body_text_preview`: Only first 10KB stored for search, full text parsed on-demand
+- `message_id`: Used for threading (InReplyTo, References)
 
-### Daily Usage
-1. Double-click `eml-viewer` → browser opens
-2. If folder already configured, shows email list immediately
-3. User can:
-   - Search emails (fuzzy search)
-   - Filter by date, sender, attachments
-   - Click email to view full content
-   - Download attachments
-   - Re-scan folder for new emails
+**emails_fts virtual table:**
+- FTS5 full-text search on subject, sender, recipients, body_text_preview
+- Auto-populated via trigger on emails INSERT/UPDATE
 
-### Search Example
-1. User types "invoice" in search bar
-2. HTMX sends request after 300ms delay
-3. Server searches using FTS5: `SELECT * WHERE MATCH 'invoice*'`
-4. Results update instantly (no page reload)
-5. Matched terms highlighted in subject/body
+**attachments table:**
+- Stores only metadata (filename, content_type, size)
+- Actual binary data parsed on-demand from .eml files
 
----
+## Security Context
 
-## Estimated Timeline
+**Trust Model**: This is a LOCAL-ONLY application designed to run on a USB thumbdrive. It is NOT designed for network exposure.
 
-| Phase | Tasks | Estimated Time |
-|-------|-------|----------------|
-| Phase 1: Core Backend | Database setup, EML parsing, scanning | 2-3 days |
-| Phase 2: Basic Frontend | Templates, handlers, email list/detail | 1-2 days |
-| Phase 3: Search & Filters | FTS5 search, filters, HTMX integration | 1-2 days |
-| Phase 4: Email Rendering | HTML rendering, attachments, preview | 1-2 days |
-| Phase 5: Polish & UX | Loading states, errors, keyboard shortcuts, dark mode | 2-3 days |
-| Phase 6: Distribution | Build scripts, docs, testing | 1 day |
-| **Total** | | **8-13 days** |
+### Implemented Security Measures
 
----
+1. **Localhost-Only Binding**: Server binds to 127.0.0.1:8787 by default, enforced in config validation
+2. **Sandboxed Iframes**: HTML emails rendered with `sandbox=""` - blocks ALL scripts, forms, plugins
+3. **CSP Headers**: `frame-src 'self'`, `script-src 'self' 'unsafe-inline'`, `object-src 'none'`
+4. **Path Traversal Protection**: ResolveEmailPath validates paths stay within EmailsPath
+5. **Cycle Detection**: findConversationRoot has max hops limit to prevent infinite loops
+6. **File Size Limits**: REMOVED per user request (local thumbdrive use case)
 
-## Progress Tracking
+### When Making Changes
 
-### Overall Progress: 85% Complete 🎉
+**HTML Rendering:**
+- NEVER use `srcdoc` in iframes (Go templates escape it)
+- Always serve HTML from separate endpoint with proper headers
+- Keep `sandbox=""` attribute (empty = maximum restrictions)
 
-- [x] **Phase 1:** Core Backend (6/6 tasks - 100%) ✅
-- [x] **Phase 2:** Basic Frontend (7/7 tasks - 100%) ✅
-- [x] **Phase 3:** Search & Filters (6/6 tasks - 100%) ✅
-- [x] **Phase 4:** Email Rendering (5/5 tasks - 100%) ✅
-- [x] **Phase 5:** Polish & UX (5/8 tasks - 62.5%) 🔄
-- [x] **Phase 6:** Distribution (6/6 tasks - 100%) ✅
+**File Paths:**
+- ALWAYS validate paths through ResolveEmailPath()
+- NEVER accept absolute paths from user input or database
+- NEVER use filepath.Join without validation
 
-### Completed Features
+**Database Queries:**
+- FTS5 queries must escape user input via escapeFTS5()
+- Use parameterized queries for all SQL
+- Validate input lengths before queries
 
-**Phase 1-4: Core Functionality ✅**
-- ✅ Go module initialized with all dependencies
-- ✅ Complete project structure with 4500+ lines of code
-- ✅ SQLite database with FTS5 full-text search
-- ✅ On-demand parsing architecture (95% database size reduction)
-- ✅ EML parser with MIME encoding, multiple charsets
-- ✅ Recursive directory scanner
-- ✅ HTTP server with auto-browser opening
-- ✅ Complete frontend with HTMX + TailwindCSS
-- ✅ Email list and detail views
-- ✅ Embedded assets (single binary)
-- ✅ Full-text search with fuzzy matching
-- ✅ Advanced filters (sender, recipient, date range, attachments)
-- ✅ Result highlighting and snippets
-- ✅ Safe HTML email rendering (sandboxed iframes)
-- ✅ Attachment viewing and downloading
-- ✅ Comprehensive test suite (33 tests, 88% parser coverage)
+**Templates:**
+- Use `template.HTML` type for trusted HTML (after sanitization)
+- Pipe functions won't work for attributes (they get escaped anyway)
+- Pass sanitized HTML as `template.HTML` in data map, not via template function
 
-**Phase 5: Polish & UX (Partial) 🔄**
-- ✅ Loading states and progress indicators
-- ✅ Error handling with user-friendly messages
-- ✅ Empty states
-- ✅ Responsive design (mobile-friendly)
-- ✅ Settings/scan page with progress tracking
-- ⏳ Keyboard shortcuts (not implemented)
-- ⏳ Dark mode (not implemented)
-- ⏳ Additional UX refinements
+## Common Patterns
 
-**Phase 6: Distribution ✅**
-- ✅ Cross-compilation build script for all platforms
-- ✅ Comprehensive README with installation instructions
-- ✅ User documentation with troubleshooting
-- ✅ Test suite with coverage reports
-- ✅ Production-ready binaries in dist/
-- ✅ Portable architecture (executable-relative paths)
+### Adding a New Route
+```go
+// 1. Add handler method in internal/handlers/
+func (h *Handlers) NewFeature(w http.ResponseWriter, r *http.Request) {
+    // Implementation
+}
 
-### Recent Accomplishments
+// 2. Register route in main.go
+r.Get("/feature", h.NewFeature)
+```
 
-**Database Refactoring (Nov 2-3, 2025)**
-- Eliminated data duplication by storing only metadata
-- On-demand parsing from .eml files
-- 95%+ database size reduction
-- Maintained full functionality with minimal performance impact
+### Parsing Email On-Demand
+```go
+// Get metadata first
+email, _ := db.GetEmailByID(id)
 
-**Test Suite Implementation (Nov 2, 2025)**
-- 33 comprehensive tests covering critical paths
-- 88.2% parser coverage, 82.4% database coverage
-- Integration tests for end-to-end workflows
-- Fast execution (<100ms) with in-memory testing
+// Parse full content when needed
+emailWithContent, _ := db.GetEmailWithFullContent(id)
+// Now has: BodyText, BodyHTML, CC, BCC, RawHeaders, Attachments
+```
 
-**Portability Enhancements (Nov 3, 2025)**
-- Executable-relative paths for database and email folders
-- Fully portable - works from USB drives
-- No installation required
-- Clean shutdown endpoint for graceful termination
+### Template Data Structure
+```go
+// Handlers pass data as map[string]interface{}
+data := map[string]interface{}{
+    "PageTitle": "Title",
+    "Email":     email,              // Metadata struct
+    "BodyHTML":  template.HTML(html), // Pre-sanitized HTML as template.HTML
+    "BodyText":  text,
+}
 
-### Next Steps (Optional Enhancements)
+// Templates access: {{.Email.Subject}}, {{.BodyHTML}}, {{.BodyText}}
+```
 
-**Remaining Phase 5 Tasks:**
-1. Implement keyboard shortcuts (j/k navigation, / for search, Esc to clear)
-2. Add dark mode toggle with theme persistence
-3. Additional UX polish based on user feedback
+## Testing Philosophy
 
-**Future Enhancements (Post-MVP):**
-- Email tagging/labels
-- Export to PDF/CSV
-- Email threading/conversations
-- Multiple folder support
-- System tray icon
-- Auto-updater
+**Pragmatic Testing**: Focus on critical paths, not 100% coverage.
 
----
+- **Parser (88% coverage)**: Thoroughly tested - handles untrusted input
+- **Database (82% coverage)**: Core CRUD and search operations
+- **Integration (4 tests)**: End-to-end workflows
+- **Total (~40%)**: Concentrated on high-risk code
 
-## Notes & Decisions
+**Test Data**:
+- `internal/parser/testdata/`: Real .eml files for parser tests
+- Tests use SQLite `:memory:` for speed
+- No external dependencies or network calls
 
-### Why Go + HTMX?
-- **Single binary:** Easiest distribution for non-technical users
-- **No dependencies:** Works on any OS without installing runtimes
-- **Fast:** Go's performance + minimal JavaScript
-- **Simple:** HTMX removes frontend complexity
-- **Small:** 10-20MB total binary size
+## Dependencies
 
-### Why SQLite FTS5?
-- Built-in full-text search (no external engine needed)
-- Fast fuzzy matching with wildcards
-- Result ranking and snippets
-- Perfect for < 100k emails
-- Zero configuration
+### Core
+- `modernc.org/sqlite`: Pure Go SQLite (no CGO)
+- `github.com/emersion/go-message`: EML/MIME parsing
+- `github.com/go-chi/chi/v5`: HTTP router
 
-### Why Embedded Assets?
-- Single file distribution
-- No "missing files" errors
-- Simpler deployment
-- Users can't accidentally delete CSS/JS files
+### Static Assets (Embedded)
+- HTMX 1.9.10: `/web/static/js/htmx.min.js`
+- Tailwind CSS 3.4.1: `/web/static/js/tailwind.min.js`
 
-### Future Enhancements (Post-MVP)
-- [ ] Email tagging/labels
-- [ ] Export to PDF/CSV
-- [ ] Email threading/conversations
-- [ ] Multiple folder support
-- [ ] Cloud backup integration
-- [ ] Email composition (send replies)
-- [ ] System tray icon
-- [ ] Auto-updater
-- [ ] Plugins/extensions
+**Why Embedded**: Originally used CDN, but CSP blocked external scripts. Now bundled locally for true offline operation.
 
----
+## File Organization Conventions
 
-## Troubleshooting
+```
+eml-viewer/
+├── main.go                    # Entry point, server setup, routes
+├── internal/
+│   ├── config/               # Configuration (defaults, validation)
+│   ├── db/                   # Database layer (SQLite, FTS5, search)
+│   ├── parser/               # EML parsing (MIME, charsets, attachments)
+│   ├── scanner/              # File tree walking, .eml discovery
+│   ├── indexer/              # Batch indexing coordinator
+│   └── handlers/             # HTTP handlers (MVC controllers)
+├── web/
+│   ├── templates/            # Go HTML templates (embedded)
+│   ├── static/               # CSS, JS (embedded)
+│   └── assets.go             # Embed declarations
+├── tests/integration/        # End-to-end tests
+└── db/                       # Runtime: SQLite database (created automatically)
+```
 
-### Common Issues
+## Troubleshooting Development Issues
 
-**Issue:** Binary won't start on macOS
-- **Solution:** Right-click → Open (bypass Gatekeeper), or sign the binary
+**Problem: Templates not updating**
+- Templates are embedded via `go:embed`, must rebuild binary
+- Solution: `go build -o eml-viewer && ./eml-viewer`
 
-**Issue:** Windows SmartScreen warning
-- **Solution:** Click "More info" → "Run anyway", or sign the binary
+**Problem: "Port already in use"**
+- Another instance running or port conflict
+- Solution: `pkill eml-viewer` or change port in config
 
-**Issue:** Browser doesn't auto-open
-- **Solution:** Manually navigate to `http://localhost:8080`
+**Problem: HTML emails showing as plain text**
+- Check iframe src points to `/email/{id}/html`
+- Verify CSP allows `frame-src 'self'`
+- Never use `srcdoc` attribute (Go escapes it)
 
-**Issue:** "Port already in use"
-- **Solution:** Change port in config, or kill process using port 8080
+**Problem: Path traversal errors in tests**
+- Paths must be relative, not absolute
+- Use `filepath.Rel()` or store relative to EmailsPath
 
-**Issue:** Emails not parsing correctly
-- **Solution:** Check .eml file encoding, ensure files are valid RFC822 format
+## Known Limitations
 
----
+1. **Size Limits Removed**: No file size restrictions (user requested for thumbdrive use)
+2. **Single-User**: Not designed for concurrent access, no locking
+3. **In-Process Scanning**: Blocks server during initial index (acceptable for local use)
+4. **No Email Threading UI**: Threading logic exists but not exposed in UI yet
 
-## Resources
+## Release Process
 
-### Documentation
-- [Go Documentation](https://go.dev/doc/)
-- [HTMX Documentation](https://htmx.org/docs/)
-- [SQLite FTS5 Extension](https://www.sqlite.org/fts5.html)
-- [emersion/go-message](https://github.com/emersion/go-message)
-- [modernc.org/sqlite](https://gitlab.com/cznic/sqlite)
+**Automated via GitHub Actions:**
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+Builds all platforms, creates GitHub Release with binaries.
 
-### Tools
-- [Go Playground](https://go.dev/play/)
-- [TailwindCSS CDN](https://tailwindcss.com/docs/installation/play-cdn)
-- [HTMX Examples](https://htmx.org/examples/)
+## When in Doubt
 
----
+- **Portability first**: Must work on USB thumbdrive, no external dependencies
+- **Security second**: Localhost-only, but still protect against malicious .eml files
+- **Simplicity third**: Single binary, auto-opens browser, zero config
 
-**Last Updated:** 2025-11-03
-**Version:** 1.0.0 (Production Ready - 85% Complete)
+Refer to README.md for user-facing documentation.
