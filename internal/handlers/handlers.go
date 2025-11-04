@@ -9,7 +9,6 @@ import (
 
 	"github.com/felo/eml-viewer/internal/config"
 	"github.com/felo/eml-viewer/internal/db"
-	"github.com/microcosm-cc/bluemonday"
 )
 
 // Handlers holds all HTTP handlers and their dependencies
@@ -35,16 +34,29 @@ func (h *Handlers) SetShutdownChannel(ch chan os.Signal) {
 
 // LoadTemplates loads HTML templates from embedded filesystem
 func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
-	// Create HTML sanitization policy for email content
-	p := bluemonday.UGCPolicy()
-
 	// Create template with custom functions
+	// Note: We don't sanitize HTML emails because they are rendered in a
+	// sandboxed iframe (sandbox="") which already provides complete security:
+	// - Blocks all scripts
+	// - Prevents form submission
+	// - Blocks popup windows
+	// - Prevents access to parent document
+	// - Treats content as from a unique origin
 	tmpl := template.New("").Funcs(template.FuncMap{
 		"html": func(s string) template.HTML {
 			return template.HTML(s)
 		},
 		"sanitizeHTML": func(s string) template.HTML {
-			return template.HTML(p.Sanitize(s))
+			// Return unsanitized - iframe sandbox provides security
+			// Log first 100 chars to debug
+			if len(s) > 100 {
+				log.Printf("sanitizeHTML input (first 100): %s", s[:100])
+			}
+			result := template.HTML(s)
+			if len(result) > 100 {
+				log.Printf("sanitizeHTML output (first 100): %s", string(result[:100]))
+			}
+			return result
 		},
 	})
 

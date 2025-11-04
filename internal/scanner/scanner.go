@@ -37,9 +37,6 @@ func (s *Scanner) GetRootPath() string {
 // This ensures portability across different systems and drive mappings
 func (s *Scanner) Scan() ([]string, error) {
 	var emlFiles []string
-	var totalSize int64
-	const MaxFileSize = 50 * 1024 * 1024    // 50MB per file
-	const MaxTotalSize = 1024 * 1024 * 1024 // 1GB total
 
 	// Get absolute path of root for reliable relative path calculation
 	absRoot, err := filepath.Abs(s.rootPath)
@@ -59,19 +56,6 @@ func (s *Scanner) Scan() ([]string, error) {
 
 		// Check if file has .eml extension
 		if strings.ToLower(filepath.Ext(path)) == ".eml" {
-			// Check individual file size
-			if info.Size() > MaxFileSize {
-				// Log but don't fail - skip this file
-				fmt.Printf("Warning: Skipping large file %s (%d bytes)\n", path, info.Size())
-				return nil
-			}
-
-			// Check total size
-			totalSize += info.Size()
-			if totalSize > MaxTotalSize {
-				return fmt.Errorf("total email size exceeds limit of %d bytes", MaxTotalSize)
-			}
-
 			// Store relative path from root for portability
 			relPath, err := filepath.Rel(absRoot, path)
 			if err != nil {

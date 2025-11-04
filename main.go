@@ -96,6 +96,7 @@ func main() {
 	// Routes
 	r.Get("/", h.Index)
 	r.Get("/email/{id}", h.ViewEmail)
+	r.Get("/email/{id}/html", h.ViewEmailHTML)
 	r.Get("/search", h.Search)
 	r.Get("/attachments/{id}/download", h.DownloadAttachment)
 	r.Post("/scan", h.Scan)
@@ -160,12 +161,13 @@ func main() {
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Content Security Policy - restrict what can be loaded/executed
+		// All scripts and styles are now bundled locally
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
 				"script-src 'self' 'unsafe-inline'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' data:; "+
-				"frame-src 'none'; "+
+				"frame-src 'self'; "+
 				"object-src 'none'; "+
 				"base-uri 'self';")
 		// Prevent MIME type sniffing

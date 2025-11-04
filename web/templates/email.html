@@ -44,10 +44,10 @@
                 <span class="w-24 font-semibold text-gray-700">To:</span>
                 <span class="flex-1 text-gray-900">{{.Email.Recipients}}</span>
             </div>
-            {{end}} {{if .Email.CC}}
+            {{end}} {{if .CC}}
             <div class="flex">
                 <span class="w-24 font-semibold text-gray-700">CC:</span>
-                <span class="flex-1 text-gray-900">{{.Email.CC}}</span>
+                <span class="flex-1 text-gray-900">{{range $i, $cc := .CC}}{{if $i}}, {{end}}{{$cc}}{{end}}</span>
             </div>
             {{end}}
 
@@ -80,7 +80,7 @@
 
         <div id="raw-headers" class="hidden mt-4 pt-4 border-t border-gray-200">
             <pre class="text-xs bg-gray-50 p-4 rounded overflow-x-auto">
-{{.Email.RawHeaders}}</pre
+{{.RawHeaders}}</pre
             >
         </div>
     </div>
@@ -89,7 +89,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="border-b border-gray-200">
             <nav class="flex -mb-px">
-                {{if .Email.BodyHTML}}
+                {{if .BodyHTML}}
                 <button
                     onclick="showTab('html')"
                     id="tab-html"
@@ -116,11 +116,11 @@
             </nav>
         </div>
 
-        {{if .Email.BodyHTML}}
+        {{if .BodyHTML}}
         <div id="content-html" class="tab-content p-6">
             <iframe
                 sandbox=""
-                srcdoc="{{.Email.BodyHTML | sanitizeHTML}}"
+                src="/email/{{.Email.ID}}/html"
                 class="w-full border border-gray-300 rounded email-iframe"
                 style="min-height: 500px"
             ></iframe>
@@ -129,11 +129,11 @@
 
         <div
             id="content-text"
-            class="tab-content p-6 {{if .Email.BodyHTML}}hidden{{end}}"
+            class="tab-content p-6 {{if .BodyHTML}}hidden{{end}}"
         >
-            {{if .Email.BodyText}}
+            {{if .BodyText}}
             <pre class="whitespace-pre-wrap font-sans text-sm text-gray-900">
-{{.Email.BodyText}}</pre
+{{.BodyText}}</pre
             >
             {{else}}
             <p class="text-gray-500 italic">No plain text content available</p>
