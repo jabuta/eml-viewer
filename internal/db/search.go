@@ -1,8 +1,10 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // EmailSearchResult represents a search result with snippet
@@ -13,10 +15,21 @@ type EmailSearchResult struct {
 
 // escapeFTS5 escapes special FTS5 characters and wraps terms in quotes
 func escapeFTS5(term string) string {
-	// Escape double quotes by doubling them
-	term = strings.ReplaceAll(term, `"`, `""`)
-	// Wrap in quotes to treat special chars as literals
-	return `"` + term + `"`
+	// Strip all non-alphanumeric except spaces and basic punctuation
+	var sanitized strings.Builder
+	for _, r := range term {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || r == ' ' || r == '@' || r == '.' || r == '-' {
+			sanitized.WriteRune(r)
+		}
+	}
+
+	cleaned := sanitized.String()
+
+	// Escape quotes
+	cleaned = strings.ReplaceAll(cleaned, `"`, `""`)
+
+	// Return quoted term
+	return `"` + cleaned + `"`
 }
 
 // SearchEmails performs a full-text search on emails using FTS5
@@ -104,6 +117,11 @@ func (db *DB) SearchEmailsWithFilters(query, sender, recipient string, hasAttach
 
 // SearchEmailsWithFiltersAndOffset performs a search with additional filters and pagination
 func (db *DB) SearchEmailsWithFiltersAndOffset(query, sender, recipient string, hasAttachments bool, dateFrom, dateTo string, limit, offset int) ([]*EmailSearchResult, error) {
+	// Validate input lengths to prevent abuse
+	if len(query) > 500 || len(sender) > 255 || len(recipient) > 255 {
+		return nil, errors.New("search term too long")
+	}
+
 	// Build WHERE clause
 	var conditions []string
 	var args []interface{}

@@ -2,12 +2,16 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
+
+var ErrPathTraversal = errors.New("path traversal detected")
 
 type DB struct {
 	*sql.DB
@@ -60,13 +64,44 @@ func (db *DB) GetEmailsPath() string {
 }
 
 // ResolveEmailPath converts a relative .eml file path to an absolute path
-func (db *DB) ResolveEmailPath(relativePath string) string {
+// Returns an error if the path attempts traversal outside the emails directory
+func (db *DB) ResolveEmailPath(relativePath string) (string, error) {
+	// Reject absolute paths for security
 	if filepath.IsAbs(relativePath) {
-		// Already absolute (legacy data)
-		return relativePath
+		return "", ErrPathTraversal
 	}
-	// Resolve relative to configured emails path
-	return filepath.Join(db.emailsPath, relativePath)
+
+	// Clean the path to remove . and ..
+	cleaned := filepath.Clean(relativePath)
+
+	// Check for path traversal attempts after cleaning
+	if strings.Contains(cleaned, "..") {
+		return "", ErrPathTraversal
+	}
+
+	// Get absolute path of emails directory
+	absEmailsPath, err := filepath.Abs(db.emailsPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute emails path: %w", err)
+	}
+
+	// Resolve the file path
+	resolved := filepath.Join(absEmailsPath, cleaned)
+
+	// Canonicalize the resolved path
+	absResolved, err := filepath.Abs(resolved)
+	if err != nil {
+		return "", fmt.Errorf("failed to canonicalize path: %w", err)
+	}
+
+	// Verify the resolved path is within emailsPath boundary
+	// Must either be a child of emailsPath or be emailsPath itself
+	if !strings.HasPrefix(absResolved, absEmailsPath+string(filepath.Separator)) &&
+		absResolved != absEmailsPath {
+		return "", ErrPathTraversal
+	}
+
+	return absResolved, nil
 }
 
 // initSchema creates all tables, indexes, and triggers

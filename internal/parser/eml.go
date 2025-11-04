@@ -36,10 +36,20 @@ func ParseEMLFile(filePath string) (*ParsedEmail, error) {
 
 // ParseEML parses an email from a reader
 func ParseEML(r io.Reader) (*ParsedEmail, error) {
+	const MaxEmailSize = 50 * 1024 * 1024 // 50MB
+
+	// Limit reader to prevent resource exhaustion
+	limitedReader := io.LimitReader(r, MaxEmailSize)
+
 	// Read the entire message first to capture raw headers
 	buf := new(bytes.Buffer)
-	if _, err := io.Copy(buf, r); err != nil {
+	if _, err := io.Copy(buf, limitedReader); err != nil {
 		return nil, fmt.Errorf("failed to read email: %w", err)
+	}
+
+	// Check if we hit the size limit
+	if buf.Len() >= MaxEmailSize {
+		return nil, fmt.Errorf("email exceeds maximum size of %d bytes", MaxEmailSize)
 	}
 
 	// Parse the message

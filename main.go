@@ -26,6 +26,11 @@ func main() {
 	// Load configuration
 	cfg := config.Default()
 
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Configuration validation failed: %v", err)
+	}
+
 	// Ensure database directory exists
 	dbDir := filepath.Dir(cfg.DBPath)
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
@@ -85,6 +90,8 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
+	r.Use(securityHeadersMiddleware)
+	r.Use(h.AuthMiddleware)
 
 	// Routes
 	r.Get("/", h.Index)
@@ -147,6 +154,28 @@ func main() {
 	}
 
 	log.Println("Server stopped")
+}
+
+// securityHeadersMiddleware adds security headers to all responses
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Content Security Policy - restrict what can be loaded/executed
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self' 'unsafe-inline'; "+
+				"style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data:; "+
+				"frame-src 'none'; "+
+				"object-src 'none'; "+
+				"base-uri 'self';")
+		// Prevent MIME type sniffing
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Prevent clickjacking
+		w.Header().Set("X-Frame-Options", "DENY")
+		// Enable XSS protection
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // openBrowser opens the default browser to the specified URL

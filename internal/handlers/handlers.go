@@ -9,6 +9,7 @@ import (
 
 	"github.com/felo/eml-viewer/internal/config"
 	"github.com/felo/eml-viewer/internal/db"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 // Handlers holds all HTTP handlers and their dependencies
@@ -34,10 +35,16 @@ func (h *Handlers) SetShutdownChannel(ch chan os.Signal) {
 
 // LoadTemplates loads HTML templates from embedded filesystem
 func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
+	// Create HTML sanitization policy for email content
+	p := bluemonday.UGCPolicy()
+
 	// Create template with custom functions
 	tmpl := template.New("").Funcs(template.FuncMap{
 		"html": func(s string) template.HTML {
 			return template.HTML(s)
+		},
+		"sanitizeHTML": func(s string) template.HTML {
+			return template.HTML(p.Sanitize(s))
 		},
 	})
 
@@ -50,6 +57,29 @@ func (h *Handlers) LoadTemplates(embeddedFiles embed.FS) error {
 	}
 	h.templates = tmpl
 	return nil
+}
+
+// AuthMiddleware implements basic authentication middleware
+func (h *Handlers) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If authentication is not required, pass through
+		if !h.cfg.RequireAuth {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check for Authorization header
+		authHeader := r.Header.Get("Authorization")
+		expectedToken := "Bearer " + h.cfg.AuthToken
+
+		if authHeader != expectedToken {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="EML Viewer"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Shutdown handles the shutdown request

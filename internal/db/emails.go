@@ -601,7 +601,10 @@ func (db *DB) GetEmailWithFullContent(id int64) (*EmailWithContent, error) {
 	}
 
 	// Resolve relative path to absolute path
-	absolutePath := db.ResolveEmailPath(email.FilePath)
+	absolutePath, err := db.ResolveEmailPath(email.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid file path: %w", err)
+	}
 
 	// Parse full content from .eml file
 	parsed, err := parser.ParseEMLFile(absolutePath)
@@ -663,7 +666,10 @@ func (db *DB) GetAttachmentData(attachmentID int64) ([]byte, error) {
 	}
 
 	// Resolve relative path to absolute path
-	absolutePath := db.ResolveEmailPath(email.FilePath)
+	absolutePath, err := db.ResolveEmailPath(email.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid file path: %w", err)
+	}
 
 	// Parse the .eml file
 	parsed, err := parser.ParseEMLFile(absolutePath)

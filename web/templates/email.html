@@ -119,11 +119,10 @@
         {{if .Email.BodyHTML}}
         <div id="content-html" class="tab-content p-6">
             <iframe
-                sandbox="allow-same-origin"
-                srcdoc="{{.Email.BodyHTML}}"
-                class="w-full border border-gray-300 rounded"
+                sandbox=""
+                srcdoc="{{.Email.BodyHTML | sanitizeHTML}}"
+                class="w-full border border-gray-300 rounded email-iframe"
                 style="min-height: 500px"
-                onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px';"
             ></iframe>
         </div>
         {{end}}

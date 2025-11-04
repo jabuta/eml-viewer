@@ -221,9 +221,16 @@ func (db *DB) GetConversationEmails(emailID int64) ([]*Email, error) {
 // findConversationRoot finds the root email of a conversation
 func (db *DB) findConversationRoot(email *Email) (*Email, error) {
 	current := email
+	visited := make(map[string]bool)
+	maxHops := 100 // Reasonable limit for email threads
 
-	// Keep following in_reply_to until we find the root
-	for current.InReplyTo != "" {
+	for hops := 0; current.InReplyTo != "" && hops < maxHops; hops++ {
+		// Check for circular references
+		if visited[current.MessageID] {
+			return nil, fmt.Errorf("circular reference detected in email thread")
+		}
+		visited[current.MessageID] = true
+
 		parent, err := db.GetEmailsByMessageID(current.InReplyTo)
 		if err != nil || parent == nil {
 			// Parent not found in database, current is the root we know about
