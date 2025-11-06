@@ -61,6 +61,9 @@ func (s *Scanner) Scan() ([]string, error) {
 			if err != nil {
 				return fmt.Errorf("failed to get relative path for %s: %w", path, err)
 			}
+			// Normalize to forward slashes for cross-platform compatibility
+			// This ensures paths work when moving USB drive between Linux/Windows
+			relPath = filepath.ToSlash(relPath)
 			emlFiles = append(emlFiles, relPath)
 		}
 

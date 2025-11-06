@@ -77,8 +77,12 @@ func (db *DB) ResolveEmailPath(relativePath string) (string, error) {
 		return "", ErrPathTraversal
 	}
 
+	// Convert from forward slashes (stored format) to OS-native separators
+	// This ensures cross-platform compatibility when USB drive moves between Linux/Windows
+	nativePath := filepath.FromSlash(relativePath)
+
 	// Clean the path to remove . and ..
-	cleaned := filepath.Clean(relativePath)
+	cleaned := filepath.Clean(nativePath)
 
 	// Check for path traversal attempts after cleaning
 	if strings.Contains(cleaned, "..") {
